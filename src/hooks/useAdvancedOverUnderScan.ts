@@ -48,7 +48,7 @@ type ResolvedSignal = AdvancedSignal & {
   resolvedAt?: number;
 };
 
-type Snapshot = { t: number; pct: number[]; pOver5: number; pUnder5: number };
+type Snapshot = { t: number; pct: number[]; pOver5: number; pUnder5: number; pUnder4: number };
 
 function freqPct(ticks: Tick[]): number[] {
   const f = new Array(10).fill(0);
@@ -73,7 +73,7 @@ function slope(snapshots: Snapshot[], digit: number): number {
   return den === 0 ? 0 : num / den;
 }
 
-function ouSlope(snapshots: Snapshot[], key: "pOver5" | "pUnder5"): number {
+function ouSlope(snapshots: Snapshot[], key: "pOver5" | "pUnder5" | "pUnder4"): number {
   if (snapshots.length < 3) return 0;
   const n = snapshots.length;
   const xs = snapshots.map((_, i) => i);
@@ -182,7 +182,8 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
           // ---- maintain snapshot history per symbol ----
           if (now - (lastSnapshotAt.current[s.symbol] ?? 0) >= SNAPSHOT_INTERVAL_MS) {
             const arr = snapshotsRef.current[s.symbol] ?? [];
-            arr.push({ t: now, pct, pOver5: ou5.pOver, pUnder5: ou5.pUnder });
+            const pUnder4 = pct[0] + pct[1] + pct[2] + pct[3];
+            arr.push({ t: now, pct, pOver5: ou5.pOver, pUnder5: ou5.pUnder, pUnder4 });
             while (arr.length > SNAPSHOT_KEEP) arr.shift();
             snapshotsRef.current[s.symbol] = arr;
             lastSnapshotAt.current[s.symbol] = now;
@@ -194,53 +195,36 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
           const lastD = lastDigit(entryPrice);
 
           // ============ OVER 2 STRATEGY ============
-          // Green dominant: 0,2,4 ; Red weak: 5,7,9
-          // 7,8,9 each < 10% but rising (slope > 0)
-          // 0 & 1 both > 10.5% with exhaustion (flat slope)
-          // Over5 > 42% AND increasing ; Under5 < 47% ; manipulation < 20%
+          // PRIMARY: Over5 > 42% AND rising (500-tick window).
+          // All other digit/exhaustion/manipulation factors are confidence boosters.
           {
-            const greenSum = pct[0] + pct[2] + pct[4];
-            const redSum = pct[5] + pct[7] + pct[9];
-            const greenDominant = greenSum > redSum;
-
-            const tailOk = pct[7] < 0.10 && pct[8] < 0.10 && pct[9] < 0.10;
             const sl7 = slope(snaps, 7);
             const sl8 = slope(snaps, 8);
             const sl9 = slope(snaps, 9);
-            const buildupRising = sl7 > 0 && sl8 > 0 && sl9 > 0;
-
-            const exhaustOk = pct[0] > 0.105 && pct[1] > 0.105;
             const flat0 = flatness(snaps, 0);
             const flat1 = flatness(snaps, 1);
+            const exhaustOk = pct[0] > 0.105 && pct[1] > 0.105;
             const exhaustConfirmed = exhaustOk && flat0 > 0.55 && flat1 > 0.55;
 
-            const over5Bias = ou5.pOver > 0.42;
-            const under5Weak = ou5.pUnder < 0.47;
+            const greenSum = pct[0] + pct[2] + pct[4];
+            const redSum = pct[5] + pct[7] + pct[9];
+
             const slOver5 = ouSlope(snaps, "pOver5");
-            const over5Rising = slOver5 >= 0;
+            const over5Bias = ou5.pOver > 0.42;
+            const over5Rising = slOver5 > 0;
+            const manipOk = intel.manipulation < 0.30;
 
-            const manipOk = intel.manipulation < 0.20;
-
-            const allOk =
-              greenDominant &&
-              tailOk &&
-              buildupRising &&
-              exhaustOk &&
-              over5Bias &&
-              under5Weak &&
-              over5Rising &&
-              manipOk &&
-              snaps.length >= 4;
+            const allOk = over5Bias && over5Rising && manipOk && snaps.length >= 3;
 
             if (allOk) {
-              // Confidence engine
-              const accel = Math.max(0, slOver5) * 600;       // ~0..30
-              const dom = Math.max(0, greenSum - redSum) * 60; // ~0..30
-              const tailSuppress = (0.30 - (pct[7] + pct[8] + pct[9])) * 60; // 0..18
-              const calm = (0.20 - intel.manipulation) * 80;  // 0..16
-              const exh = (exhaustConfirmed ? 10 : 4);
-              const conf = Math.min(98, Math.round(55 + accel + dom + tailSuppress + calm + exh) / 1);
-              const finalConf = Math.min(98, Math.max(60, Math.round(conf)));
+              const base = 60;
+              const overEdge = Math.min(20, (ou5.pOver - 0.42) * 200); // 0..20
+              const accel = Math.min(20, Math.max(0, slOver5) * 800);  // 0..20
+              const dom = Math.max(0, greenSum - redSum) * 40;          // bonus
+              const tailSuppress = Math.max(0, (0.30 - (pct[7] + pct[8] + pct[9]))) * 30;
+              const calm = Math.max(0, (0.30 - intel.manipulation)) * 30;
+              const exh = exhaustConfirmed ? 8 : exhaustOk ? 4 : 0;
+              const finalConf = Math.min(98, Math.max(60, Math.round(base + overEdge + accel + dom + tailSuppress + calm + exh)));
 
               const sig: AdvancedSignal = {
                 id: `o2-${s.symbol}-${now}`,
@@ -263,15 +247,15 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
                   { digit: 0, pct: pct[0], flat: flat0 },
                   { digit: 1, pct: pct[1], flat: flat1 },
                 ],
-                exhaustionStatus: exhaustConfirmed ? "CONFIRMED" : "FORMING",
-                momentum: greenDominant ? "BULLISH" : "NEUTRAL",
+                exhaustionStatus: exhaustConfirmed ? "CONFIRMED" : exhaustOk ? "FORMING" : "NONE",
+                momentum: greenSum > redSum ? "BULLISH" : "NEUTRAL",
                 entryPrice,
                 lastDigit: lastD,
               };
               o2.push(sig);
 
               const lastTs = o2CooldownRef.current[s.symbol] ?? 0;
-              if (finalConf >= 72 && now - lastTs > COOLDOWN_MS) {
+              if (finalConf >= 65 && now - lastTs > COOLDOWN_MS) {
                 o2CooldownRef.current[s.symbol] = now;
                 const resolved: ResolvedSignal = { ...sig, outcome: "PENDING" };
                 newO2History.push(resolved);
@@ -280,53 +264,38 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
             }
           }
 
-          // ============ UNDER 7 STRATEGY (inverse) ============
-          // Green dominant: 5,7,9 ; Red weak: 0,2,4
-          // 0,1,2 each < 10% but rising
-          // 7 & 9 both > 10.5% with exhaustion
-          // Under5 > 42% AND increasing ; Over5 < 47% ; manipulation < 20%
+          // ============ UNDER 7 STRATEGY ============
+          // PRIMARY: Under4 (digits 0-3) > 42% AND rising (500-tick window).
+          // All other factors are confidence boosters.
           {
-            const greenSum = pct[5] + pct[7] + pct[9];
-            const redSum = pct[0] + pct[2] + pct[4];
-            const greenDominant = greenSum > redSum;
-
-            const tailOk = pct[0] < 0.10 && pct[1] < 0.10 && pct[2] < 0.10;
+            const pUnder4 = pct[0] + pct[1] + pct[2] + pct[3];
             const sl0 = slope(snaps, 0);
             const sl1 = slope(snaps, 1);
             const sl2 = slope(snaps, 2);
-            const buildupRising = sl0 > 0 && sl1 > 0 && sl2 > 0;
-
-            const exhaustOk = pct[7] > 0.105 && pct[9] > 0.105;
             const flat7 = flatness(snaps, 7);
             const flat9 = flatness(snaps, 9);
+            const exhaustOk = pct[7] > 0.105 && pct[9] > 0.105;
             const exhaustConfirmed = exhaustOk && flat7 > 0.55 && flat9 > 0.55;
 
-            const under5Bias = ou5.pUnder > 0.42;
-            const over5Weak = ou5.pOver < 0.47;
-            const slUnder5 = ouSlope(snaps, "pUnder5");
-            const under5Rising = slUnder5 >= 0;
+            const greenSum = pct[5] + pct[7] + pct[9];
+            const redSum = pct[0] + pct[2] + pct[4];
 
-            const manipOk = intel.manipulation < 0.20;
+            const slUnder4 = ouSlope(snaps, "pUnder4");
+            const under4Bias = pUnder4 > 0.42;
+            const under4Rising = slUnder4 > 0;
+            const manipOk = intel.manipulation < 0.30;
 
-            const allOk =
-              greenDominant &&
-              tailOk &&
-              buildupRising &&
-              exhaustOk &&
-              under5Bias &&
-              over5Weak &&
-              under5Rising &&
-              manipOk &&
-              snaps.length >= 4;
+            const allOk = under4Bias && under4Rising && manipOk && snaps.length >= 3;
 
             if (allOk) {
-              const accel = Math.max(0, slUnder5) * 600;
-              const dom = Math.max(0, greenSum - redSum) * 60;
-              const tailSuppress = (0.30 - (pct[0] + pct[1] + pct[2])) * 60;
-              const calm = (0.20 - intel.manipulation) * 80;
-              const exh = (exhaustConfirmed ? 10 : 4);
-              const conf = Math.min(98, Math.round(55 + accel + dom + tailSuppress + calm + exh));
-              const finalConf = Math.min(98, Math.max(60, conf));
+              const base = 60;
+              const underEdge = Math.min(20, (pUnder4 - 0.42) * 200);
+              const accel = Math.min(20, Math.max(0, slUnder4) * 800);
+              const dom = Math.max(0, redSum - greenSum) * 40;
+              const tailSuppress = Math.max(0, (0.30 - (pct[7] + pct[8] + pct[9]))) * 30;
+              const calm = Math.max(0, (0.30 - intel.manipulation)) * 30;
+              const exh = exhaustConfirmed ? 8 : exhaustOk ? 4 : 0;
+              const finalConf = Math.min(98, Math.max(60, Math.round(base + underEdge + accel + dom + tailSuppress + calm + exh)));
 
               const sig: AdvancedSignal = {
                 id: `u7-${s.symbol}-${now}`,
@@ -338,8 +307,8 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
                 manipulation: intel.manipulation,
                 pOver5: ou5.pOver,
                 pUnder5: ou5.pUnder,
-                greenDigits: [5, 7, 9],
-                redDigits: [0, 2, 4],
+                greenDigits: [0, 1, 2, 3],
+                redDigits: [7, 8, 9],
                 buildup: [
                   { digit: 0, pct: pct[0], slope: sl0 },
                   { digit: 1, pct: pct[1], slope: sl1 },
@@ -349,15 +318,15 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
                   { digit: 7, pct: pct[7], flat: flat7 },
                   { digit: 9, pct: pct[9], flat: flat9 },
                 ],
-                exhaustionStatus: exhaustConfirmed ? "CONFIRMED" : "FORMING",
-                momentum: greenDominant ? "BEARISH" : "NEUTRAL",
+                exhaustionStatus: exhaustConfirmed ? "CONFIRMED" : exhaustOk ? "FORMING" : "NONE",
+                momentum: redSum > greenSum ? "BEARISH" : "NEUTRAL",
                 entryPrice,
                 lastDigit: lastD,
               };
               u7.push(sig);
 
               const lastTs = u7CooldownRef.current[s.symbol] ?? 0;
-              if (finalConf >= 72 && now - lastTs > COOLDOWN_MS) {
+              if (finalConf >= 65 && now - lastTs > COOLDOWN_MS) {
                 u7CooldownRef.current[s.symbol] = now;
                 const resolved: ResolvedSignal = { ...sig, outcome: "PENDING" };
                 newU7History.push(resolved);
@@ -366,6 +335,8 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
             }
           }
         }
+
+
 
         setOver2Signals(o2);
         setUnder7Signals(u7);
