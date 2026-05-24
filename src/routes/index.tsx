@@ -42,6 +42,7 @@ function Dashboard() {
   const view: Tick[] = useMemo(() => ticks.slice(-windowSize), [ticks, windowSize]);
   const fileRef = useRef<HTMLInputElement>(null);
   const scan = useMultiVolatilityScan(running);
+  const advScan = useAdvancedOverUnderScan(running);
 
   const onUpload = async (file: File) => {
     const text = await file.text();
