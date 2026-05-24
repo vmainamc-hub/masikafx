@@ -335,7 +335,8 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
             }
           }
         }
-        }
+
+
 
         setOver2Signals(o2);
         setUnder7Signals(u7);
