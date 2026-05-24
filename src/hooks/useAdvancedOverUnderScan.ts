@@ -182,7 +182,8 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
           // ---- maintain snapshot history per symbol ----
           if (now - (lastSnapshotAt.current[s.symbol] ?? 0) >= SNAPSHOT_INTERVAL_MS) {
             const arr = snapshotsRef.current[s.symbol] ?? [];
-            arr.push({ t: now, pct, pOver5: ou5.pOver, pUnder5: ou5.pUnder });
+            const pUnder4 = pct[0] + pct[1] + pct[2] + pct[3];
+            arr.push({ t: now, pct, pOver5: ou5.pOver, pUnder5: ou5.pUnder, pUnder4 });
             while (arr.length > SNAPSHOT_KEEP) arr.shift();
             snapshotsRef.current[s.symbol] = arr;
             lastSnapshotAt.current[s.symbol] = now;
