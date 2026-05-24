@@ -13,6 +13,8 @@ import { MatchDiffModule } from "@/components/modules/MatchDiffModule";
 import { MarketIntel } from "@/components/modules/MarketIntel";
 import { SignalFeed } from "@/components/modules/SignalFeed";
 import { useMultiVolatilityScan } from "@/hooks/useMultiVolatilityScan";
+import { useAdvancedOverUnderScan } from "@/hooks/useAdvancedOverUnderScan";
+import { AdvancedScannerFeed } from "@/components/modules/AdvancedScannerFeed";
 
 export const Route = createFileRoute("/")({
   head: () => ({
