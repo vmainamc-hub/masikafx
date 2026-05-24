@@ -186,6 +186,26 @@ function Dashboard() {
               <MatchDiffModule ticks={view} />
             </div>
 
+            {/* Advanced OVER 2 / UNDER 7 multi-market scanners */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <AdvancedScannerFeed
+                type="OVER2"
+                signals={advScan.over2Signals}
+                history={advScan.over2History}
+                winRate={advScan.over2WinRate}
+                status={advScan.status}
+                scannedCount={advScan.scannedCount}
+              />
+              <AdvancedScannerFeed
+                type="UNDER7"
+                signals={advScan.under7Signals}
+                history={advScan.under7History}
+                winRate={advScan.under7WinRate}
+                status={advScan.status}
+                scannedCount={advScan.scannedCount}
+              />
+            </div>
+
             <MarketIntel ticks={view} />
           </>
         )}
