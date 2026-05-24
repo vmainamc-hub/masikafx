@@ -32,7 +32,7 @@ export function AdvancedScannerFeed({ type, signals, history, winRate, status, s
       subtitle={isOver
         ? "500-tick · momentum 0/2/4 · buildup 7-9 · exhaustion 0/1"
         : "500-tick · momentum 5/7/9 · buildup 0-2 · exhaustion 7/9"}
-      accent={isOver ? "neon" : "magenta"}
+      accent={isOver ? "cyan" : "magenta"}
     >
       {/* Status + meters */}
       <div className="grid grid-cols-3 gap-2 mb-3">
