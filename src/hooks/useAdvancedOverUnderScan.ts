@@ -73,7 +73,7 @@ function slope(snapshots: Snapshot[], digit: number): number {
   return den === 0 ? 0 : num / den;
 }
 
-function ouSlope(snapshots: Snapshot[], key: "pOver5" | "pUnder5"): number {
+function ouSlope(snapshots: Snapshot[], key: "pOver5" | "pUnder5" | "pUnder4"): number {
   if (snapshots.length < 3) return 0;
   const n = snapshots.length;
   const xs = snapshots.map((_, i) => i);
