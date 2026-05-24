@@ -48,7 +48,7 @@ type ResolvedSignal = AdvancedSignal & {
   resolvedAt?: number;
 };
 
-type Snapshot = { t: number; pct: number[]; pOver5: number; pUnder5: number };
+type Snapshot = { t: number; pct: number[]; pOver5: number; pUnder5: number; pUnder4: number };
 
 function freqPct(ticks: Tick[]): number[] {
   const f = new Array(10).fill(0);
