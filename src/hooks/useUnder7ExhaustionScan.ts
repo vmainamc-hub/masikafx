@@ -211,11 +211,11 @@ export function useUnder7ExhaustionScan(enabled: boolean) {
           const rec = recoveryQueueRef.current[s.symbol];
           if (rec && now - rec.ts < RECOVERY_TTL_MS) {
             const lowRising = lowMom === "RISING";
-            const highWeak = highMom !== "RISING";
-            const manipOk = intel.manipulation < 0.20;
-            if (lowRising && highWeak && manipOk && stability > 0.5) {
+            const highWeak = highMom === "FALLING";
+            const manipOk = intel.manipulation < 0.12;
+            if (lowRising && highWeak && manipOk && stability > 0.7 && g.low > 0.46 && g.high < 0.30) {
               const conf = Math.round(Math.min(96,
-                60 + (g.low - 0.45) * 120 + stability * 15 + (1 - intel.manipulation) * 15,
+                72 + (g.low - 0.46) * 100 + stability * 12 + (0.12 - intel.manipulation) * 40,
               ));
               const sig: U7Signal = {
                 id: `u5r-${s.symbol}-${now}`, kind: "UNDER5_RECOVERY",
