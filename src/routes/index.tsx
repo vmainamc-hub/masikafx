@@ -15,6 +15,8 @@ import { SignalFeed } from "@/components/modules/SignalFeed";
 import { useMultiVolatilityScan } from "@/hooks/useMultiVolatilityScan";
 import { useAdvancedOverUnderScan } from "@/hooks/useAdvancedOverUnderScan";
 import { AdvancedScannerFeed } from "@/components/modules/AdvancedScannerFeed";
+import { useUnder7ExhaustionScan } from "@/hooks/useUnder7ExhaustionScan";
+import { Under7ExhaustionPanel } from "@/components/modules/Under7ExhaustionPanel";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -43,6 +45,7 @@ function Dashboard() {
   const fileRef = useRef<HTMLInputElement>(null);
   const scan = useMultiVolatilityScan(running);
   const advScan = useAdvancedOverUnderScan(running);
+  const u7Scan = useUnder7ExhaustionScan(running);
 
   const onUpload = async (file: File) => {
     const text = await file.text();
@@ -205,6 +208,16 @@ function Dashboard() {
                 scannedCount={advScan.scannedCount}
               />
             </div>
+
+            {/* UNDER 7 exhaustion + UNDER 5 recovery scanner */}
+            <Under7ExhaustionPanel
+              signals={u7Scan.signals}
+              history={u7Scan.history}
+              winRate={u7Scan.winRate}
+              ranking={u7Scan.ranking}
+              status={u7Scan.status}
+              scannedCount={u7Scan.scannedCount}
+            />
 
             <MarketIntel ticks={view} />
           </>
