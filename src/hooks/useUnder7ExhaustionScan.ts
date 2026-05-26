@@ -312,25 +312,26 @@ export function useUnder7ExhaustionScan(enabled: boolean) {
             delete recoveryQueueRef.current[s.symbol];
           }
 
-          // -------- PRIMARY UNDER 7 entry (BALANCED QUALITY) --------
+          // -------- PRIMARY UNDER 7 entry (DYNAMIC THRESHOLDS) --------
+          const TH = thresholdsRef.current;
           const { streak, under4After } = detectOver5Streak(ticks);
-          const manipOk = intel.manipulation < 0.18;       // manipulation cap
-          const calmOk = stability > 0.55;                  // reasonably calm market
-          const tailWeak = g.high < 0.38;                   // high digits suppressed
-          const lowOk = g.low > 0.40;                       // strong low dominance
-          const midOk = g.mid < 0.32;                       // mids not bloated
+          const manipOk = intel.manipulation < TH.manipMax;
+          const calmOk = stability > TH.stabilityMin;
+          const tailWeak = g.high < TH.highDomMax;
+          const lowOk = g.low > TH.lowDomMin;
+          const midOk = g.mid < TH.midDomMax;
           const momOk = lowMom !== "FALLING" && highMom !== "RISING";
           const ready =
-            streak >= 3 && under4After && manipOk && calmOk &&
+            streak >= TH.minStreak && under4After && manipOk && calmOk &&
             tailWeak && lowOk && midOk && momOk && snaps.length >= 3;
 
           if (ready) {
             const base = 64;
-            const streakBonus = Math.min(16, (streak - 3) * 5 + 5);
-            const lowBonus = Math.min(14, (g.low - 0.40) * 70);
-            const highSuppress = Math.min(12, (0.38 - g.high) * 55);
+            const streakBonus = Math.min(16, (streak - TH.minStreak) * 5 + 5);
+            const lowBonus = Math.min(14, (g.low - TH.lowDomMin) * 70);
+            const highSuppress = Math.min(12, (TH.highDomMax - g.high) * 55);
             const calm = stability * 12;
-            const manipBonus = (0.18 - intel.manipulation) * 40;
+            const manipBonus = (TH.manipMax - intel.manipulation) * 40;
             const momBoost = lowMom === "RISING" ? 8 : 4;
             const conf = Math.max(70, Math.min(98, Math.round(base + streakBonus + lowBonus + highSuppress + calm + manipBonus + momBoost)));
 
@@ -347,7 +348,7 @@ export function useUnder7ExhaustionScan(enabled: boolean) {
             out.push(sig);
 
             const lastTs = cooldownRef.current[s.symbol] ?? 0;
-            if (conf >= 74 && now - lastTs > COOLDOWN_MS) {
+            if (conf >= TH.emitConfMin && now - lastTs > COOLDOWN_MS) {
 
               cooldownRef.current[s.symbol] = now;
               const resolved: U7Resolved = { ...sig, outcome: "PENDING" };
