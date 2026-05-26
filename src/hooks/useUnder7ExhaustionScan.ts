@@ -116,13 +116,84 @@ function chaosScore(ticks: Tick[]): number {
   return Math.min(1, flips / (recent.length * 0.6));
 }
 
+export type U7Thresholds = {
+  minStreak: number;
+  lowDomMin: number;
+  highDomMax: number;
+  midDomMax: number;
+  manipMax: number;
+  stabilityMin: number;
+  emitConfMin: number;
+};
+
+const DEFAULT_THRESHOLDS: U7Thresholds = {
+  minStreak: 3,
+  lowDomMin: 0.40,
+  highDomMax: 0.38,
+  midDomMax: 0.32,
+  manipMax: 0.18,
+  stabilityMin: 0.55,
+  emitConfMin: 74,
+};
+
+// Tuning bounds: when "tightening" we move toward stricter values; when "loosening" toward laxer.
+const STRICT: U7Thresholds = {
+  minStreak: 5, lowDomMin: 0.50, highDomMax: 0.30, midDomMax: 0.26,
+  manipMax: 0.10, stabilityMin: 0.78, emitConfMin: 86,
+};
+const LAX: U7Thresholds = {
+  minStreak: 3, lowDomMin: 0.34, highDomMax: 0.44, midDomMax: 0.36,
+  manipMax: 0.24, stabilityMin: 0.45, emitConfMin: 68,
+};
+
+function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
+function tuneThresholds(prev: U7Thresholds, recent: U7Resolved[]): U7Thresholds {
+  const resolved = recent.filter((r) => r.outcome === "WIN" || r.outcome === "LOSS").slice(0, 20);
+  if (resolved.length < 6) return prev;
+  const wins = resolved.filter((r) => r.outcome === "WIN").length;
+  const rate = wins / resolved.length;
+  // target ~70% win rate; t>0 → tighten toward STRICT; t<0 → loosen toward LAX
+  const t = Math.max(-1, Math.min(1, (0.70 - rate) * 2));
+  const step = 0.15; // smoothness
+  const target: U7Thresholds = t >= 0
+    ? {
+        minStreak: lerp(prev.minStreak, STRICT.minStreak, t),
+        lowDomMin: lerp(prev.lowDomMin, STRICT.lowDomMin, t),
+        highDomMax: lerp(prev.highDomMax, STRICT.highDomMax, t),
+        midDomMax: lerp(prev.midDomMax, STRICT.midDomMax, t),
+        manipMax: lerp(prev.manipMax, STRICT.manipMax, t),
+        stabilityMin: lerp(prev.stabilityMin, STRICT.stabilityMin, t),
+        emitConfMin: lerp(prev.emitConfMin, STRICT.emitConfMin, t),
+      }
+    : {
+        minStreak: lerp(prev.minStreak, LAX.minStreak, -t),
+        lowDomMin: lerp(prev.lowDomMin, LAX.lowDomMin, -t),
+        highDomMax: lerp(prev.highDomMax, LAX.highDomMax, -t),
+        midDomMax: lerp(prev.midDomMax, LAX.midDomMax, -t),
+        manipMax: lerp(prev.manipMax, LAX.manipMax, -t),
+        stabilityMin: lerp(prev.stabilityMin, LAX.stabilityMin, -t),
+        emitConfMin: lerp(prev.emitConfMin, LAX.emitConfMin, -t),
+      };
+  return {
+    minStreak: Math.round(lerp(prev.minStreak, target.minStreak, step)),
+    lowDomMin: +lerp(prev.lowDomMin, target.lowDomMin, step).toFixed(3),
+    highDomMax: +lerp(prev.highDomMax, target.highDomMax, step).toFixed(3),
+    midDomMax: +lerp(prev.midDomMax, target.midDomMax, step).toFixed(3),
+    manipMax: +lerp(prev.manipMax, target.manipMax, step).toFixed(3),
+    stabilityMin: +lerp(prev.stabilityMin, target.stabilityMin, step).toFixed(3),
+    emitConfMin: Math.round(lerp(prev.emitConfMin, target.emitConfMin, step)),
+  };
+}
+
 export function useUnder7ExhaustionScan(enabled: boolean) {
   const [signals, setSignals] = useState<U7Signal[]>([]);
   const [history, setHistory] = useState<U7Resolved[]>([]);
   const [winRate, setWinRate] = useState({ wins: 0, losses: 0 });
   const [ranking, setRanking] = useState<{ symbol: string; name: string; rank: number; stability: number; lowDom: number; highDom: number; manipulation: number }[]>([]);
   const [status, setStatus] = useState<"idle" | "connecting" | "live" | "error">("idle");
+  const [thresholds, setThresholds] = useState<U7Thresholds>(DEFAULT_THRESHOLDS);
 
+  const thresholdsRef = useRef<U7Thresholds>(DEFAULT_THRESHOLDS);
   const ticksRef = useRef<Record<string, Tick[]>>({});
   const snapshotsRef = useRef<Record<string, Snapshot[]>>({});
   const lastSnapshotAt = useRef<Record<string, number>>({});
@@ -241,25 +312,26 @@ export function useUnder7ExhaustionScan(enabled: boolean) {
             delete recoveryQueueRef.current[s.symbol];
           }
 
-          // -------- PRIMARY UNDER 7 entry (BALANCED QUALITY) --------
+          // -------- PRIMARY UNDER 7 entry (DYNAMIC THRESHOLDS) --------
+          const TH = thresholdsRef.current;
           const { streak, under4After } = detectOver5Streak(ticks);
-          const manipOk = intel.manipulation < 0.18;       // manipulation cap
-          const calmOk = stability > 0.55;                  // reasonably calm market
-          const tailWeak = g.high < 0.38;                   // high digits suppressed
-          const lowOk = g.low > 0.40;                       // strong low dominance
-          const midOk = g.mid < 0.32;                       // mids not bloated
+          const manipOk = intel.manipulation < TH.manipMax;
+          const calmOk = stability > TH.stabilityMin;
+          const tailWeak = g.high < TH.highDomMax;
+          const lowOk = g.low > TH.lowDomMin;
+          const midOk = g.mid < TH.midDomMax;
           const momOk = lowMom !== "FALLING" && highMom !== "RISING";
           const ready =
-            streak >= 3 && under4After && manipOk && calmOk &&
+            streak >= TH.minStreak && under4After && manipOk && calmOk &&
             tailWeak && lowOk && midOk && momOk && snaps.length >= 3;
 
           if (ready) {
             const base = 64;
-            const streakBonus = Math.min(16, (streak - 3) * 5 + 5);
-            const lowBonus = Math.min(14, (g.low - 0.40) * 70);
-            const highSuppress = Math.min(12, (0.38 - g.high) * 55);
+            const streakBonus = Math.min(16, (streak - TH.minStreak) * 5 + 5);
+            const lowBonus = Math.min(14, (g.low - TH.lowDomMin) * 70);
+            const highSuppress = Math.min(12, (TH.highDomMax - g.high) * 55);
             const calm = stability * 12;
-            const manipBonus = (0.18 - intel.manipulation) * 40;
+            const manipBonus = (TH.manipMax - intel.manipulation) * 40;
             const momBoost = lowMom === "RISING" ? 8 : 4;
             const conf = Math.max(70, Math.min(98, Math.round(base + streakBonus + lowBonus + highSuppress + calm + manipBonus + momBoost)));
 
@@ -276,7 +348,7 @@ export function useUnder7ExhaustionScan(enabled: boolean) {
             out.push(sig);
 
             const lastTs = cooldownRef.current[s.symbol] ?? 0;
-            if (conf >= 74 && now - lastTs > COOLDOWN_MS) {
+            if (conf >= TH.emitConfMin && now - lastTs > COOLDOWN_MS) {
 
               cooldownRef.current[s.symbol] = now;
               const resolved: U7Resolved = { ...sig, outcome: "PENDING" };
@@ -326,7 +398,14 @@ export function useUnder7ExhaustionScan(enabled: boolean) {
         setHistory((prev) => {
           const map = new Map(prev.map((h) => [h.id, h]));
           for (const f of finalised) map.set(f.id, f);
-          return [...map.values()].sort((a, b) => b.ts - a.ts).slice(0, HISTORY_MAX);
+          const next = [...map.values()].sort((a, b) => b.ts - a.ts).slice(0, HISTORY_MAX);
+          // Dynamic threshold tuning based on the latest resolved outcomes
+          const tuned = tuneThresholds(thresholdsRef.current, next);
+          if (JSON.stringify(tuned) !== JSON.stringify(thresholdsRef.current)) {
+            thresholdsRef.current = tuned;
+            setThresholds(tuned);
+          }
+          return next;
         });
       }
       if (w || l) {
@@ -374,5 +453,5 @@ export function useUnder7ExhaustionScan(enabled: boolean) {
     };
   }, [enabled]);
 
-  return { signals, history, winRate, ranking, status, scannedCount: SCAN_SYMBOLS.length };
+  return { signals, history, winRate, ranking, status, scannedCount: SCAN_SYMBOLS.length, thresholds };
 }

@@ -18,6 +18,7 @@ import { AdvancedScannerFeed } from "@/components/modules/AdvancedScannerFeed";
 import { useUnder7ExhaustionScan } from "@/hooks/useUnder7ExhaustionScan";
 import { Under7ExhaustionPanel } from "@/components/modules/Under7ExhaustionPanel";
 import { DigitPercentages } from "@/components/modules/DigitPercentages";
+import { SignalBacktestPanel } from "@/components/modules/SignalBacktestPanel";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -221,6 +222,9 @@ function Dashboard() {
               status={u7Scan.status}
               scannedCount={u7Scan.scannedCount}
             />
+
+            <SignalBacktestPanel history={u7Scan.history} thresholds={u7Scan.thresholds} />
+
 
             <MarketIntel ticks={view} />
           </>
