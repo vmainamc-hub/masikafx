@@ -4,7 +4,7 @@ import { overUnderStats, marketIntel, evenOddStats, riseFallStats, lastDigit, ty
 
 const APP_ID = 1089;
 const WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`;
-const MAX_TICKS = 200;
+const MAX_TICKS = 1000; // align with Digits 0–9 Live Distribution panel
 
 // Scan all standard + 1s volatility markets
 const SCAN_SYMBOLS = DERIV_SYMBOLS.filter((s) => s.group === "Standard" || s.group === "1s");
