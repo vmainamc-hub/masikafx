@@ -18,6 +18,7 @@ import { AdvancedScannerFeed } from "@/components/modules/AdvancedScannerFeed";
 import { useUnder7ExhaustionScan } from "@/hooks/useUnder7ExhaustionScan";
 import { Under7ExhaustionPanel } from "@/components/modules/Under7ExhaustionPanel";
 import { DigitPercentages } from "@/components/modules/DigitPercentages";
+import { SignalBacktestPanel } from "@/components/modules/SignalBacktestPanel";
 
 export const Route = createFileRoute("/")({
   head: () => ({
