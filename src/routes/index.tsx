@@ -223,6 +223,9 @@ function Dashboard() {
               scannedCount={u7Scan.scannedCount}
             />
 
+            <SignalBacktestPanel history={u7Scan.history} thresholds={u7Scan.thresholds} />
+
+
             <MarketIntel ticks={view} />
           </>
         )}
