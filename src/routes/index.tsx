@@ -17,6 +17,7 @@ import { useAdvancedOverUnderScan } from "@/hooks/useAdvancedOverUnderScan";
 import { AdvancedScannerFeed } from "@/components/modules/AdvancedScannerFeed";
 import { useUnder7ExhaustionScan } from "@/hooks/useUnder7ExhaustionScan";
 import { Under7ExhaustionPanel } from "@/components/modules/Under7ExhaustionPanel";
+import { DigitPercentages } from "@/components/modules/DigitPercentages";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -180,6 +181,8 @@ function Dashboard() {
               </div>
               <SignalFeed ticks={view} scanMatches={scan.matches} evenOddMatches={scan.evenOddMatches} over2Matches={scan.over2Matches} over2History={scan.over2History} botMatches={scan.botMatches} botHistory={scan.botHistory} scanStatus={scan.status} scannedCount={scan.scannedCount} />
             </div>
+
+            <DigitPercentages ticks={ticks} />
 
             {/* Modules grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
