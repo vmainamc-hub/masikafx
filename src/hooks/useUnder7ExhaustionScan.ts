@@ -453,5 +453,5 @@ export function useUnder7ExhaustionScan(enabled: boolean) {
     };
   }, [enabled]);
 
-  return { signals, history, winRate, ranking, status, scannedCount: SCAN_SYMBOLS.length };
+  return { signals, history, winRate, ranking, status, scannedCount: SCAN_SYMBOLS.length, thresholds };
 }
