@@ -398,7 +398,14 @@ export function useUnder7ExhaustionScan(enabled: boolean) {
         setHistory((prev) => {
           const map = new Map(prev.map((h) => [h.id, h]));
           for (const f of finalised) map.set(f.id, f);
-          return [...map.values()].sort((a, b) => b.ts - a.ts).slice(0, HISTORY_MAX);
+          const next = [...map.values()].sort((a, b) => b.ts - a.ts).slice(0, HISTORY_MAX);
+          // Dynamic threshold tuning based on the latest resolved outcomes
+          const tuned = tuneThresholds(thresholdsRef.current, next);
+          if (JSON.stringify(tuned) !== JSON.stringify(thresholdsRef.current)) {
+            thresholdsRef.current = tuned;
+            setThresholds(tuned);
+          }
+          return next;
         });
       }
       if (w || l) {
