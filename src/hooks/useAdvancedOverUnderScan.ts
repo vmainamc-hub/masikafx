@@ -10,8 +10,8 @@ import { lastDigit, overUnderStats, marketIntel, type Tick } from "@/lib/analyti
 
 const APP_ID = 1089;
 const WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`;
-const WINDOW = 500;
-const MAX_TICKS = 520;
+const WINDOW = 1000; // align with Digits 0–9 Live Distribution panel
+const MAX_TICKS = 1020;
 const SNAPSHOT_INTERVAL_MS = 1500; // sample digit % for slope analysis
 const SNAPSHOT_KEEP = 12;          // ~18s of history per market
 const COOLDOWN_MS = 45_000;

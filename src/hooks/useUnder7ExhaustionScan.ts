@@ -14,8 +14,8 @@ import { lastDigit, marketIntel, type Tick } from "@/lib/analytics";
 
 const APP_ID = 1089;
 const WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`;
-const WINDOW = 500;
-const MAX_TICKS = 520;
+const WINDOW = 1000; // align with Digits 0–9 Live Distribution panel
+const MAX_TICKS = 1020;
 const SNAPSHOT_INTERVAL_MS = 1500;
 const SNAPSHOT_KEEP = 14;
 const COOLDOWN_MS = 45_000;
