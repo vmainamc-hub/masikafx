@@ -194,40 +194,55 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
           const entryPrice = lastTick.price;
           const lastD = lastDigit(entryPrice);
 
+          // Identify hot (highest %) and cold (lowest %) digits.
+          let hotD = 0, coldD = 0;
+          for (let i = 1; i < 10; i++) {
+            if (pct[i] > pct[hotD]) hotD = i;
+            if (pct[i] < pct[coldD]) coldD = i;
+          }
+
           // ============ OVER 2 STRATEGY ============
-          // PRIMARY: Over5 > 42% AND rising (500-tick window).
-          // All other digit/exhaustion/manipulation factors are confidence boosters.
+          // Setup: low digits (0,1,2) dominated but exhausting; high digits
+          // (7,8,9) suppressed but quietly rising → expect shift > 2.
           {
+            const sl0 = slope(snaps, 0);
+            const sl1 = slope(snaps, 1);
+            const sl2 = slope(snaps, 2);
             const sl7 = slope(snaps, 7);
             const sl8 = slope(snaps, 8);
             const sl9 = slope(snaps, 9);
             const flat0 = flatness(snaps, 0);
             const flat1 = flatness(snaps, 1);
-            const exhaustOk = pct[0] > 0.105 && pct[1] > 0.105;
-            const exhaustConfirmed = exhaustOk && flat0 > 0.55 && flat1 > 0.55;
+            const flat2 = flatness(snaps, 2);
 
-            const greenSum = pct[0] + pct[2] + pct[4];
-            const redSum = pct[5] + pct[7] + pct[9];
+            // Hot/cold placement gate (user-specified).
+            const hotOk = hotD === 0 || hotD === 2 || hotD === 4;
+            const coldOk = coldD === 5 || coldD === 7 || coldD === 9;
 
-            const slOver5 = ouSlope(snaps, "pOver5");
-            // Direct OVER 2 hit probability from the live 0–9 distribution.
-            const pOver2 = pct[3] + pct[4] + pct[5] + pct[6] + pct[7] + pct[8] + pct[9];
-            const over2Ok = pOver2 >= 0.70;
-            const over5Bias = ou5.pOver > 0.42;
-            const over5Rising = slOver5 > 0;
+            // Digits 0,1,2 elevated above expected 10%.
+            const lowsElevated = pct[0] > 0.11 && pct[1] > 0.11 && pct[2] > 0.11;
+            // ...and exhausting (flat / not climbing).
+            const lowsExhausting =
+              (flat0 > 0.55 || sl0 <= 0) &&
+              (flat1 > 0.55 || sl1 <= 0) &&
+              (flat2 > 0.55 || sl2 <= 0);
+            const exhaustConfirmed = lowsElevated && flat0 > 0.55 && flat1 > 0.55 && flat2 > 0.55;
+
+            // Digits 7,8,9 suppressed AND rising (hidden buildup).
+            const highsSuppressed = pct[7] < 0.10 && pct[8] < 0.10 && pct[9] < 0.10;
+            const highsRising = sl7 > 0 && sl8 > 0 && sl9 > 0;
+
             const manipOk = intel.manipulation < 0.30;
-
-            const allOk = over5Bias && over5Rising && manipOk && over2Ok && snaps.length >= 3;
+            const allOk = hotOk && coldOk && lowsElevated && lowsExhausting &&
+                          highsSuppressed && highsRising && manipOk && snaps.length >= 4;
 
             if (allOk) {
-              const base = 60;
-              const overEdge = Math.min(20, (ou5.pOver - 0.42) * 200); // 0..20
-              const accel = Math.min(20, Math.max(0, slOver5) * 800);  // 0..20
-              const dom = Math.max(0, greenSum - redSum) * 40;          // bonus
-              const tailSuppress = Math.max(0, (0.30 - (pct[7] + pct[8] + pct[9]))) * 30;
+              const base = 65;
+              const lowEdge = Math.min(15, ((pct[0] + pct[1] + pct[2]) - 0.33) * 100);
+              const highBuild = Math.min(15, Math.max(0, (sl7 + sl8 + sl9)) * 400);
               const calm = Math.max(0, (0.30 - intel.manipulation)) * 30;
-              const exh = exhaustConfirmed ? 8 : exhaustOk ? 4 : 0;
-              const finalConf = Math.min(98, Math.max(60, Math.round(base + overEdge + accel + dom + tailSuppress + calm + exh)));
+              const exh = exhaustConfirmed ? 8 : 4;
+              const finalConf = Math.min(98, Math.max(65, Math.round(base + lowEdge + highBuild + calm + exh)));
 
               const sig: AdvancedSignal = {
                 id: `o2-${s.symbol}-${now}`,
@@ -249,16 +264,17 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
                 exhaustion: [
                   { digit: 0, pct: pct[0], flat: flat0 },
                   { digit: 1, pct: pct[1], flat: flat1 },
+                  { digit: 2, pct: pct[2], flat: flat2 },
                 ],
-                exhaustionStatus: exhaustConfirmed ? "CONFIRMED" : exhaustOk ? "FORMING" : "NONE",
-                momentum: greenSum > redSum ? "BULLISH" : "NEUTRAL",
+                exhaustionStatus: exhaustConfirmed ? "CONFIRMED" : "FORMING",
+                momentum: "BULLISH",
                 entryPrice,
                 lastDigit: lastD,
               };
               o2.push(sig);
 
               const lastTs = o2CooldownRef.current[s.symbol] ?? 0;
-              if (finalConf >= 65 && now - lastTs > COOLDOWN_MS) {
+              if (finalConf >= 70 && now - lastTs > COOLDOWN_MS) {
                 o2CooldownRef.current[s.symbol] = now;
                 const resolved: ResolvedSignal = { ...sig, outcome: "PENDING" };
                 newO2History.push(resolved);
@@ -267,41 +283,44 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
             }
           }
 
-          // ============ UNDER 7 STRATEGY ============
-          // PRIMARY: Under4 (digits 0-3) > 42% AND rising (500-tick window).
-          // All other factors are confidence boosters.
+          // ============ UNDER 7 STRATEGY (mirror) ============
+          // Setup: high digits (7,8,9) dominated but exhausting; low digits
+          // (0,1,2) suppressed but quietly rising → expect shift < 7.
           {
-            const pUnder4 = pct[0] + pct[1] + pct[2] + pct[3];
             const sl0 = slope(snaps, 0);
             const sl1 = slope(snaps, 1);
             const sl2 = slope(snaps, 2);
+            const sl7 = slope(snaps, 7);
+            const sl8 = slope(snaps, 8);
+            const sl9 = slope(snaps, 9);
             const flat7 = flatness(snaps, 7);
+            const flat8 = flatness(snaps, 8);
             const flat9 = flatness(snaps, 9);
-            const exhaustOk = pct[7] > 0.105 && pct[9] > 0.105;
-            const exhaustConfirmed = exhaustOk && flat7 > 0.55 && flat9 > 0.55;
 
-            const greenSum = pct[5] + pct[7] + pct[9];
-            const redSum = pct[0] + pct[2] + pct[4];
+            const hotOk = hotD === 5 || hotD === 7 || hotD === 9;
+            const coldOk = coldD === 0 || coldD === 2 || coldD === 4;
 
-            const slUnder4 = ouSlope(snaps, "pUnder4");
-            // Direct UNDER 7 hit probability from the live 0–9 distribution.
-            const pUnder7 = pct[0] + pct[1] + pct[2] + pct[3] + pct[4] + pct[5] + pct[6];
-            const under7Ok = pUnder7 >= 0.70;
-            const under4Bias = pUnder4 > 0.42;
-            const under4Rising = slUnder4 > 0;
+            const highsElevated = pct[7] > 0.11 && pct[8] > 0.11 && pct[9] > 0.11;
+            const highsExhausting =
+              (flat7 > 0.55 || sl7 <= 0) &&
+              (flat8 > 0.55 || sl8 <= 0) &&
+              (flat9 > 0.55 || sl9 <= 0);
+            const exhaustConfirmed = highsElevated && flat7 > 0.55 && flat8 > 0.55 && flat9 > 0.55;
+
+            const lowsSuppressed = pct[0] < 0.10 && pct[1] < 0.10 && pct[2] < 0.10;
+            const lowsRising = sl0 > 0 && sl1 > 0 && sl2 > 0;
+
             const manipOk = intel.manipulation < 0.30;
-
-            const allOk = under4Bias && under4Rising && manipOk && under7Ok && snaps.length >= 3;
+            const allOk = hotOk && coldOk && highsElevated && highsExhausting &&
+                          lowsSuppressed && lowsRising && manipOk && snaps.length >= 4;
 
             if (allOk) {
-              const base = 60;
-              const underEdge = Math.min(20, (pUnder4 - 0.42) * 200);
-              const accel = Math.min(20, Math.max(0, slUnder4) * 800);
-              const dom = Math.max(0, redSum - greenSum) * 40;
-              const tailSuppress = Math.max(0, (0.30 - (pct[7] + pct[8] + pct[9]))) * 30;
+              const base = 65;
+              const highEdge = Math.min(15, ((pct[7] + pct[8] + pct[9]) - 0.33) * 100);
+              const lowBuild = Math.min(15, Math.max(0, (sl0 + sl1 + sl2)) * 400);
               const calm = Math.max(0, (0.30 - intel.manipulation)) * 30;
-              const exh = exhaustConfirmed ? 8 : exhaustOk ? 4 : 0;
-              const finalConf = Math.min(98, Math.max(60, Math.round(base + underEdge + accel + dom + tailSuppress + calm + exh)));
+              const exh = exhaustConfirmed ? 8 : 4;
+              const finalConf = Math.min(98, Math.max(65, Math.round(base + highEdge + lowBuild + calm + exh)));
 
               const sig: AdvancedSignal = {
                 id: `u7-${s.symbol}-${now}`,
@@ -313,8 +332,8 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
                 manipulation: intel.manipulation,
                 pOver5: ou5.pOver,
                 pUnder5: ou5.pUnder,
-                greenDigits: [0, 1, 2, 3],
-                redDigits: [7, 8, 9],
+                greenDigits: [5, 7, 9],
+                redDigits: [0, 2, 4],
                 buildup: [
                   { digit: 0, pct: pct[0], slope: sl0 },
                   { digit: 1, pct: pct[1], slope: sl1 },
@@ -322,17 +341,18 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
                 ],
                 exhaustion: [
                   { digit: 7, pct: pct[7], flat: flat7 },
+                  { digit: 8, pct: pct[8], flat: flat8 },
                   { digit: 9, pct: pct[9], flat: flat9 },
                 ],
-                exhaustionStatus: exhaustConfirmed ? "CONFIRMED" : exhaustOk ? "FORMING" : "NONE",
-                momentum: redSum > greenSum ? "BEARISH" : "NEUTRAL",
+                exhaustionStatus: exhaustConfirmed ? "CONFIRMED" : "FORMING",
+                momentum: "BEARISH",
                 entryPrice,
                 lastDigit: lastD,
               };
               u7.push(sig);
 
               const lastTs = u7CooldownRef.current[s.symbol] ?? 0;
-              if (finalConf >= 65 && now - lastTs > COOLDOWN_MS) {
+              if (finalConf >= 70 && now - lastTs > COOLDOWN_MS) {
                 u7CooldownRef.current[s.symbol] = now;
                 const resolved: ResolvedSignal = { ...sig, outcome: "PENDING" };
                 newU7History.push(resolved);
@@ -340,6 +360,7 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
               }
             }
           }
+
         }
 
 
