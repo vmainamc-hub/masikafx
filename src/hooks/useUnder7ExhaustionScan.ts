@@ -263,7 +263,7 @@ export function useUnder7ExhaustionScan(enabled: boolean) {
 
           if (now - (lastSnapshotAt.current[s.symbol] ?? 0) >= SNAPSHOT_INTERVAL_MS) {
             const arr = snapshotsRef.current[s.symbol] ?? [];
-            arr.push({ t: now, low: g.low, mid: g.mid, high: g.high });
+            arr.push({ t: now, low: g.low, mid: g.mid, high: g.high, under7: g.under7 });
             while (arr.length > SNAPSHOT_KEEP) arr.shift();
             snapshotsRef.current[s.symbol] = arr;
             lastSnapshotAt.current[s.symbol] = now;
