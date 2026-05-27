@@ -232,7 +232,7 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
             const highsSuppressed = pct[7] < 0.10 && pct[8] < 0.10 && pct[9] < 0.10;
             const highsRising = sl7 > 0 && sl8 > 0 && sl9 > 0;
 
-            const manipOk = intel.manipulation < 0.30;
+            const manipOk = intel.manipulation < 0.20;
             const allOk = hotOk && coldOk && lowsElevated && lowsExhausting &&
                           highsSuppressed && highsRising && manipOk && snaps.length >= 4;
 
@@ -242,7 +242,7 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
               const highBuild = Math.min(15, Math.max(0, (sl7 + sl8 + sl9)) * 400);
               const calm = Math.max(0, (0.30 - intel.manipulation)) * 30;
               const exh = exhaustConfirmed ? 8 : 4;
-              const finalConf = Math.min(98, Math.max(65, Math.round(base + lowEdge + highBuild + calm + exh)));
+              const finalConf = Math.min(98, Math.max(70, Math.round(base + lowEdge + highBuild + calm + exh)));
 
               const sig: AdvancedSignal = {
                 id: `o2-${s.symbol}-${now}`,
@@ -310,7 +310,7 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
             const lowsSuppressed = pct[0] < 0.10 && pct[1] < 0.10 && pct[2] < 0.10;
             const lowsRising = sl0 > 0 && sl1 > 0 && sl2 > 0;
 
-            const manipOk = intel.manipulation < 0.30;
+            const manipOk = intel.manipulation < 0.20;
             const allOk = hotOk && coldOk && highsElevated && highsExhausting &&
                           lowsSuppressed && lowsRising && manipOk && snaps.length >= 4;
 
@@ -320,7 +320,7 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
               const lowBuild = Math.min(15, Math.max(0, (sl0 + sl1 + sl2)) * 400);
               const calm = Math.max(0, (0.30 - intel.manipulation)) * 30;
               const exh = exhaustConfirmed ? 8 : 4;
-              const finalConf = Math.min(98, Math.max(65, Math.round(base + highEdge + lowBuild + calm + exh)));
+              const finalConf = Math.min(98, Math.max(70, Math.round(base + highEdge + lowBuild + calm + exh)));
 
               const sig: AdvancedSignal = {
                 id: `u7-${s.symbol}-${now}`,
