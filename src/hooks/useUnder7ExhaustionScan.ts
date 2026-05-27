@@ -52,18 +52,25 @@ export type U7Signal = {
 
 export type U7Resolved = U7Signal & { outcome: "WIN" | "LOSS" | "PENDING"; resolvedAt?: number };
 
-type Snapshot = { t: number; low: number; mid: number; high: number };
+type Snapshot = { t: number; low: number; mid: number; high: number; under7: number };
+
+// Build per-digit percentages from the same window the "Digits 0–9 Live
+// Distribution" panel uses, then derive group dominance from that array.
+// This guarantees the scanner's gates match what the user sees on screen.
+function digitPct(ticks: Tick[]): number[] {
+  const f = new Array(10).fill(0);
+  for (const tk of ticks) f[lastDigit(tk.price)]++;
+  const tot = Math.max(1, ticks.length);
+  return f.map((c) => c / tot);
+}
 
 function group(ticks: Tick[]) {
-  let low = 0, mid = 0, high = 0;
-  for (const tk of ticks) {
-    const d = lastDigit(tk.price);
-    if (d <= 4) low++;
-    else if (d <= 6) mid++;
-    else high++;
-  }
-  const tot = Math.max(1, ticks.length);
-  return { low: low / tot, mid: mid / tot, high: high / tot };
+  const pct = digitPct(ticks);
+  const low = pct[0] + pct[1] + pct[2] + pct[3] + pct[4];   // digits 0–4
+  const mid = pct[5] + pct[6];                              // digits 5–6
+  const high = pct[7] + pct[8] + pct[9];                    // digits 7–9
+  const under7 = low + mid;                                 // digits 0–6 (UNDER 7 hit zone)
+  return { low, mid, high, under7, pct };
 }
 
 function momentum(snaps: Snapshot[], key: "low" | "mid" | "high"): "RISING" | "FALLING" | "FLAT" {
@@ -256,7 +263,7 @@ export function useUnder7ExhaustionScan(enabled: boolean) {
 
           if (now - (lastSnapshotAt.current[s.symbol] ?? 0) >= SNAPSHOT_INTERVAL_MS) {
             const arr = snapshotsRef.current[s.symbol] ?? [];
-            arr.push({ t: now, low: g.low, mid: g.mid, high: g.high });
+            arr.push({ t: now, low: g.low, mid: g.mid, high: g.high, under7: g.under7 });
             while (arr.length > SNAPSHOT_KEEP) arr.shift();
             snapshotsRef.current[s.symbol] = arr;
             lastSnapshotAt.current[s.symbol] = now;
@@ -321,9 +328,11 @@ export function useUnder7ExhaustionScan(enabled: boolean) {
           const lowOk = g.low > TH.lowDomMin;
           const midOk = g.mid < TH.midDomMax;
           const momOk = lowMom !== "FALLING" && highMom !== "RISING";
+          // Direct UNDER 7 hit probability from the live 0–9 distribution.
+          const under7Ok = g.under7 >= 0.70;
           const ready =
             streak >= TH.minStreak && under4After && manipOk && calmOk &&
-            tailWeak && lowOk && midOk && momOk && snaps.length >= 3;
+            tailWeak && lowOk && midOk && momOk && under7Ok && snaps.length >= 3;
 
           if (ready) {
             const base = 64;

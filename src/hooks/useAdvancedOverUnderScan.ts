@@ -210,11 +210,14 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
             const redSum = pct[5] + pct[7] + pct[9];
 
             const slOver5 = ouSlope(snaps, "pOver5");
+            // Direct OVER 2 hit probability from the live 0–9 distribution.
+            const pOver2 = pct[3] + pct[4] + pct[5] + pct[6] + pct[7] + pct[8] + pct[9];
+            const over2Ok = pOver2 >= 0.70;
             const over5Bias = ou5.pOver > 0.42;
             const over5Rising = slOver5 > 0;
             const manipOk = intel.manipulation < 0.30;
 
-            const allOk = over5Bias && over5Rising && manipOk && snaps.length >= 3;
+            const allOk = over5Bias && over5Rising && manipOk && over2Ok && snaps.length >= 3;
 
             if (allOk) {
               const base = 60;
@@ -281,11 +284,14 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
             const redSum = pct[0] + pct[2] + pct[4];
 
             const slUnder4 = ouSlope(snaps, "pUnder4");
+            // Direct UNDER 7 hit probability from the live 0–9 distribution.
+            const pUnder7 = pct[0] + pct[1] + pct[2] + pct[3] + pct[4] + pct[5] + pct[6];
+            const under7Ok = pUnder7 >= 0.70;
             const under4Bias = pUnder4 > 0.42;
             const under4Rising = slUnder4 > 0;
             const manipOk = intel.manipulation < 0.30;
 
-            const allOk = under4Bias && under4Rising && manipOk && snaps.length >= 3;
+            const allOk = under4Bias && under4Rising && manipOk && under7Ok && snaps.length >= 3;
 
             if (allOk) {
               const base = 60;
