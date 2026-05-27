@@ -328,9 +328,11 @@ export function useUnder7ExhaustionScan(enabled: boolean) {
           const lowOk = g.low > TH.lowDomMin;
           const midOk = g.mid < TH.midDomMax;
           const momOk = lowMom !== "FALLING" && highMom !== "RISING";
+          // Direct UNDER 7 hit probability from the live 0–9 distribution.
+          const under7Ok = g.under7 >= 0.70;
           const ready =
             streak >= TH.minStreak && under4After && manipOk && calmOk &&
-            tailWeak && lowOk && midOk && momOk && snaps.length >= 3;
+            tailWeak && lowOk && midOk && momOk && under7Ok && snaps.length >= 3;
 
           if (ready) {
             const base = 64;
