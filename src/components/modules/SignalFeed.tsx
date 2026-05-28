@@ -1,6 +1,16 @@
 import { marketIntel, riseFallStats, evenOddStats, overUnderStats, type Tick } from "@/lib/analytics";
 import { Panel } from "../Panel";
-import { Sparkles, AlertTriangle, Activity, Target, TrendingDown, TrendingUp, Crosshair, Radar, Volume2, Dice5, Bot } from "lucide-react";
+import { Sparkles, AlertTriangle, Activity, Target, TrendingDown, TrendingUp, Crosshair, Radar, Volume2, Dice5, Bot, ShieldCheck } from "lucide-react";
+
+function ManipGate({ manipulation }: { manipulation: number }) {
+  const mp = manipulation * 100;
+  const pass = mp < 20;
+  return (
+    <span className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] ${pass ? "bg-[var(--bull)]/15 text-[var(--bull)]" : "bg-[var(--bear)]/15 text-[var(--bear)]"}`}>
+      <ShieldCheck size={9} /> manip gate {pass ? "PASS" : "FAIL"} · {mp.toFixed(1)}%/20%
+    </span>
+  );
+}
 import { useAlertSound } from "@/hooks/useAlertSound";
 import type { Under7Match, EvenOddMatch, Over2Match, BotMatch } from "@/hooks/useMultiVolatilityScan";
 
@@ -171,6 +181,7 @@ export function SignalFeed({
                   <span>Entry {m.entryPrice.toFixed(4)}</span>
                   <span>Last digit {m.lastDigit}</span>
                 </div>
+                <ManipGate manipulation={m.manipulation} />
               </li>
             ))}
           </ul>
