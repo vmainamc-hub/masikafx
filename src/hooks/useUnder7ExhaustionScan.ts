@@ -150,7 +150,7 @@ const STRICT: U7Thresholds = {
 };
 const LAX: U7Thresholds = {
   minStreak: 3, lowDomMin: 0.34, highDomMax: 0.44, midDomMax: 0.36,
-  manipMax: 0.24, stabilityMin: 0.45, emitConfMin: 68,
+  manipMax: 0.20, stabilityMin: 0.45, emitConfMin: 68,
 };
 
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }

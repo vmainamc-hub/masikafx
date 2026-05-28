@@ -1,6 +1,16 @@
 import { marketIntel, riseFallStats, evenOddStats, overUnderStats, type Tick } from "@/lib/analytics";
 import { Panel } from "../Panel";
-import { Sparkles, AlertTriangle, Activity, Target, TrendingDown, TrendingUp, Crosshair, Radar, Volume2, Dice5, Bot } from "lucide-react";
+import { Sparkles, AlertTriangle, Activity, Target, TrendingDown, TrendingUp, Crosshair, Radar, Volume2, Dice5, Bot, ShieldCheck } from "lucide-react";
+
+function ManipGate({ manipulation }: { manipulation: number }) {
+  const mp = manipulation * 100;
+  const pass = mp < 20;
+  return (
+    <span className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] ${pass ? "bg-[var(--bull)]/15 text-[var(--bull)]" : "bg-[var(--bear)]/15 text-[var(--bear)]"}`}>
+      <ShieldCheck size={9} /> manip gate {pass ? "PASS" : "FAIL"} · {mp.toFixed(1)}%/20%
+    </span>
+  );
+}
 import { useAlertSound } from "@/hooks/useAlertSound";
 import type { Under7Match, EvenOddMatch, Over2Match, BotMatch } from "@/hooks/useMultiVolatilityScan";
 
@@ -52,7 +62,7 @@ export function SignalFeed({
       conf: Math.min(97, Math.round(ou5.pUnder * 100 + 25)),
     });
   }
-  if (ou7.pUnder > 0.70 && m.manipulation < 0.10) {
+  if (ou7.pUnder > 0.70 && m.manipulation < 0.20) {
     const total = Math.max(1, ticks.length);
     const p0 = ou7.freq[0] / total;
     const p1 = ou7.freq[1] / total;
@@ -171,6 +181,7 @@ export function SignalFeed({
                   <span>Entry {m.entryPrice.toFixed(4)}</span>
                   <span>Last digit {m.lastDigit}</span>
                 </div>
+                <ManipGate manipulation={m.manipulation} />
               </li>
             ))}
           </ul>
@@ -282,6 +293,7 @@ export function SignalFeed({
                       </div>
                     ))}
                   </div>
+                  <ManipGate manipulation={m.manipulation} />
                 </li>
               );
             })}
@@ -312,7 +324,7 @@ export function SignalFeed({
             <span className="text-xs font-semibold uppercase tracking-wider">DBot · Over 2 + Under 7 Combined</span>
           </div>
           <span className="text-[10px] uppercase tracking-wider opacity-70 flex items-center gap-1">
-            <Volume2 size={11} /> both edges aligned · manip&lt;10%
+            <Volume2 size={11} /> both edges aligned · manip&lt;20%
           </span>
         </div>
         {botMatches.length === 0 ? (
@@ -333,6 +345,7 @@ export function SignalFeed({
                   <span>d7 {(b.p7*100).toFixed(1)}% · d8 {(b.p8*100).toFixed(1)}% · d9 {(b.p9*100).toFixed(1)}%</span>
                   <span>Entry {b.entryPrice.toFixed(4)} · d{b.lastDigit}</span>
                 </div>
+                <ManipGate manipulation={b.manipulation} />
               </li>
             ))}
           </ul>
