@@ -111,6 +111,15 @@ export function Under7ExhaustionPanel({ signals, history, winRate, ranking, stat
                   <span className="px-1.5 py-0.5 rounded bg-foreground/10 text-foreground/70">
                     rank {s.rank}/100
                   </span>
+                  {(() => {
+                    const mp = s.manipulation * 100;
+                    const pass = mp < 20;
+                    return (
+                      <span className={`px-1.5 py-0.5 rounded flex items-center gap-1 ${pass ? "bg-[var(--bull)]/15 text-[var(--bull)]" : "bg-[var(--bear)]/15 text-[var(--bear)]"}`}>
+                        <ShieldCheck size={9} /> manip gate {pass ? "PASS" : "FAIL"} · {mp.toFixed(1)}%/20%
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 <div className="mt-1.5 text-[9px] uppercase tracking-wider opacity-60 flex items-center gap-1">
