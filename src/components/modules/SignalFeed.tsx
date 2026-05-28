@@ -293,6 +293,7 @@ export function SignalFeed({
                       </div>
                     ))}
                   </div>
+                  <ManipGate manipulation={m.manipulation} />
                 </li>
               );
             })}
@@ -344,6 +345,7 @@ export function SignalFeed({
                   <span>d7 {(b.p7*100).toFixed(1)}% · d8 {(b.p8*100).toFixed(1)}% · d9 {(b.p9*100).toFixed(1)}%</span>
                   <span>Entry {b.entryPrice.toFixed(4)} · d{b.lastDigit}</span>
                 </div>
+                <ManipGate manipulation={b.manipulation} />
               </li>
             ))}
           </ul>
