@@ -84,6 +84,8 @@ export function useMultiVolatilityScan(enabled: boolean) {
   const [botHistory, setBotHistory] = useState<BotMatch[]>([]);
   const [status, setStatus] = useState<"idle" | "connecting" | "live" | "error">("idle");
   const ticksRef = useRef<Record<string, Tick[]>>({});
+  const snapshotsRef = useRef<Record<string, { t: number; pct: number[] }[]>>({});
+  const lastSnapAt = useRef<Record<string, number>>({});
   const cooldownRef = useRef<Record<string, number>>({});
   const botCooldownRef = useRef<Record<string, number>>({});
   const wsRef = useRef<WebSocket | null>(null);
