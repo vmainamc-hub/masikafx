@@ -52,7 +52,7 @@ export function SignalFeed({
       conf: Math.min(97, Math.round(ou5.pUnder * 100 + 25)),
     });
   }
-  if (ou7.pUnder > 0.70 && m.manipulation < 0.10) {
+  if (ou7.pUnder > 0.70 && m.manipulation < 0.20) {
     const total = Math.max(1, ticks.length);
     const p0 = ou7.freq[0] / total;
     const p1 = ou7.freq[1] / total;
@@ -312,7 +312,7 @@ export function SignalFeed({
             <span className="text-xs font-semibold uppercase tracking-wider">DBot · Over 2 + Under 7 Combined</span>
           </div>
           <span className="text-[10px] uppercase tracking-wider opacity-70 flex items-center gap-1">
-            <Volume2 size={11} /> both edges aligned · manip&lt;10%
+            <Volume2 size={11} /> both edges aligned · manip&lt;20%
           </span>
         </div>
         {botMatches.length === 0 ? (

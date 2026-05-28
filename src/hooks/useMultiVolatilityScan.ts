@@ -364,7 +364,7 @@ export function useMultiVolatilityScan(enabled: boolean) {
             const over2Ok = p0 > 0.115 && p7 < 0.10 && p8 < 0.10 && p9 < 0.10 && ou2b.pOver >= 0.70;
             const under7Ok = ou7b.pUnder > 0.70 && p0 < 0.095 && p1 < 0.095 && p9 >= 0.105;
             // Both share the manipulation < 0.10 floor (tighter of the two)
-            if (over2Ok && under7Ok && m.manipulation < 0.10 && ticks.length >= 120) {
+            if (over2Ok && under7Ok && m.manipulation < 0.20 && ticks.length >= 120) {
               const lastTick = ticks[ticks.length - 1];
               const entryPrice = lastTick?.price ?? 0;
               const overEdge = Math.max(0, ou2b.pOver - 0.70);   // 0..0.30
