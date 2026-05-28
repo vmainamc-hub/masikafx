@@ -146,15 +146,61 @@ export function useMultiVolatilityScan(enabled: boolean) {
         const now = Date.now();
         for (const s of SCAN_SYMBOLS) {
           const ticks = ticksRef.current[s.symbol];
-          if (!ticks || ticks.length < 60) continue;
+          if (!ticks || ticks.length < 200) continue;
           const ou7 = overUnderStats(ticks, 7);
           const m = marketIntel(ticks);
-          if (ou7.pUnder > 0.70 && m.manipulation < 0.10) {
-            const total = Math.max(1, ticks.length);
-            const p0 = ou7.freq[0] / total;
-            const p1 = ou7.freq[1] / total;
-            const p9 = ou7.freq[9] / total;
-            if (p0 < 0.095 && p1 < 0.095 && p9 >= 0.105) {
+
+          // --- maintain digit-distribution snapshots for slope analysis ---
+          const total0 = Math.max(1, ticks.length);
+          const pctNow = new Array(10).fill(0);
+          for (const tk of ticks) pctNow[lastDigit(tk.price)]++;
+          for (let i = 0; i < 10; i++) pctNow[i] = pctNow[i] / total0;
+          if (now - (lastSnapAt.current[s.symbol] ?? 0) >= 1500) {
+            const arr = snapshotsRef.current[s.symbol] ?? [];
+            arr.push({ t: now, pct: pctNow });
+            while (arr.length > 12) arr.shift();
+            snapshotsRef.current[s.symbol] = arr;
+            lastSnapAt.current[s.symbol] = now;
+          }
+          const snaps = snapshotsRef.current[s.symbol] ?? [];
+          const slopeOf = (d: number) => {
+            if (snaps.length < 3) return 0;
+            const n = snaps.length;
+            const mx = (n - 1) / 2;
+            const ys = snaps.map((sn) => sn.pct[d]);
+            const my = ys.reduce((a, b) => a + b, 0) / n;
+            let num = 0, den = 0;
+            for (let i = 0; i < n; i++) {
+              num += (i - mx) * (ys[i] - my);
+              den += (i - mx) ** 2;
+            }
+            return den === 0 ? 0 : num / den;
+          };
+
+          // ============ UNDER 7 ============
+          // Hot digit ∈ {5,7,9}, Cold digit ∈ {0,2,4}.
+          // p7/p8/p9 elevated and decreasing (exhausting);
+          // p0/p1/p2 suppressed and increasing (building).
+          {
+            let hotD = 0, coldD = 0;
+            for (let i = 1; i < 10; i++) {
+              if (pctNow[i] > pctNow[hotD]) hotD = i;
+              if (pctNow[i] < pctNow[coldD]) coldD = i;
+            }
+            const hotOk = hotD === 5 || hotD === 7 || hotD === 9;
+            const coldOk = coldD === 0 || coldD === 2 || coldD === 4;
+            const sl0 = slopeOf(0), sl1 = slopeOf(1), sl2 = slopeOf(2);
+            const sl7 = slopeOf(7), sl8 = slopeOf(8), sl9 = slopeOf(9);
+            const highsHigh = pctNow[7] > 0.11 && pctNow[8] > 0.11 && pctNow[9] > 0.11;
+            const highsDecreasing = sl7 <= 0 && sl8 <= 0 && sl9 <= 0;
+            const lowsLow = pctNow[0] < 0.10 && pctNow[1] < 0.10 && pctNow[2] < 0.10;
+            const lowsRising = sl0 > 0 && sl1 > 0 && sl2 > 0;
+            const manipOk = m.manipulation < 0.20;
+            if (
+              hotOk && coldOk && highsHigh && highsDecreasing &&
+              lowsLow && lowsRising && manipOk && snaps.length >= 4 &&
+              ou7.pUnder > 0.70
+            ) {
               const lastTick = ticks[ticks.length - 1];
               const entryPrice = lastTick?.price ?? 0;
               const stakePct = Math.min(5, Math.max(1, Math.round((ou7.pUnder - 0.70) * 100 / 2 + 1)));
@@ -163,13 +209,13 @@ export function useMultiVolatilityScan(enabled: boolean) {
                 name: s.name,
                 pUnder: ou7.pUnder,
                 manipulation: m.manipulation,
-                p0,
-                p1,
-                p9,
+                p0: pctNow[0],
+                p1: pctNow[1],
+                p9: pctNow[9],
                 entryPrice,
                 lastDigit: lastDigit(entryPrice),
                 stakePct,
-                conf: Math.min(98, Math.round(ou7.pUnder * 100 + 18)),
+                conf: Math.min(98, Math.max(70, Math.round(ou7.pUnder * 100 + 18))),
               });
             }
           }
