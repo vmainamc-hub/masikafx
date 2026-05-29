@@ -191,16 +191,17 @@ export function useMultiVolatilityScan(enabled: boolean) {
             const coldOk = coldD === 0 || coldD === 2 || coldD === 4;
             const sl0 = slopeOf(0), sl1 = slopeOf(1), sl2 = slopeOf(2);
             const sl7 = slopeOf(7), sl8 = slopeOf(8), sl9 = slopeOf(9);
-            const highsHigh = pctNow[7] > 0.11 && pctNow[8] > 0.11 && pctNow[9] > 0.11;
-            const highsDecreasing = sl7 <= 0 && sl8 <= 0 && sl9 <= 0;
-            const lowsLow = pctNow[0] < 0.10 && pctNow[1] < 0.10 && pctNow[2] < 0.10;
-            const lowsRising = sl0 > 0 && sl1 > 0 && sl2 > 0;
+            const highsHigh = [pctNow[7], pctNow[8], pctNow[9]].filter((p) => p > 0.105).length >= 2;
+            const highsDecreasing = [sl7, sl8, sl9].filter((s) => s <= 0).length >= 2;
+            const lowsLow = [pctNow[0], pctNow[1], pctNow[2]].filter((p) => p < 0.105).length >= 2;
+            const lowsRising = [sl0, sl1, sl2].filter((s) => s > 0).length >= 2;
             const manipOk = m.manipulation < 0.20;
             if (
               hotOk && coldOk && highsHigh && highsDecreasing &&
-              lowsLow && lowsRising && manipOk && snaps.length >= 4 &&
-              ou7.pUnder > 0.70
+              lowsLow && lowsRising && manipOk && snaps.length >= 3 &&
+              ou7.pUnder > 0.68
             ) {
+
               const lastTick = ticks[ticks.length - 1];
               const entryPrice = lastTick?.price ?? 0;
               const stakePct = Math.min(5, Math.max(1, Math.round((ou7.pUnder - 0.70) * 100 / 2 + 1)));
