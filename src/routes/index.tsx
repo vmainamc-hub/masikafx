@@ -47,7 +47,7 @@ function Dashboard() {
   const fileRef = useRef<HTMLInputElement>(null);
   const scan = useMultiVolatilityScan(running);
   const advScan = useAdvancedOverUnderScan(running);
-  const u7Scan = useUnder7ExhaustionScan(running);
+  const o5u4 = useOver5Under4Scan(running);
 
   const onUpload = async (file: File) => {
     const text = await file.text();
