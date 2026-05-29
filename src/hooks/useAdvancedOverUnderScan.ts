@@ -305,19 +305,24 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
             const hotOk = hotD === 5 || hotD === 7 || hotD === 9;
             const coldOk = coldD === 0 || coldD === 2 || coldD === 4;
 
-            const highsElevated = pct[7] > 0.11 && pct[8] > 0.11 && pct[9] > 0.11;
-            const highsExhausting =
-              (flat7 > 0.55 || sl7 <= 0) &&
-              (flat8 > 0.55 || sl8 <= 0) &&
-              (flat9 > 0.55 || sl9 <= 0);
+            const highsCount = [pct[7], pct[8], pct[9]].filter((p) => p > 0.105).length;
+            const highsElevated = highsCount >= 2;
+            const exhCount =
+              ((flat7 > 0.50 || sl7 <= 0) ? 1 : 0) +
+              ((flat8 > 0.50 || sl8 <= 0) ? 1 : 0) +
+              ((flat9 > 0.50 || sl9 <= 0) ? 1 : 0);
+            const highsExhausting = exhCount >= 2;
             const exhaustConfirmed = highsElevated && flat7 > 0.55 && flat8 > 0.55 && flat9 > 0.55;
 
-            const lowsSuppressed = pct[0] < 0.10 && pct[1] < 0.10 && pct[2] < 0.10;
-            const lowsRising = sl0 > 0 && sl1 > 0 && sl2 > 0;
+            const lowsCount = [pct[0], pct[1], pct[2]].filter((p) => p < 0.105).length;
+            const lowsSuppressed = lowsCount >= 2;
+            const risingCount = [sl0, sl1, sl2].filter((s) => s > 0).length;
+            const lowsRising = risingCount >= 2;
 
             const manipOk = intel.manipulation < 0.20;
             const allOk = hotOk && coldOk && highsElevated && highsExhausting &&
-                          lowsSuppressed && lowsRising && manipOk && snaps.length >= 4;
+                          lowsSuppressed && lowsRising && manipOk && snaps.length >= 3;
+
 
             if (allOk) {
               const base = 65;
