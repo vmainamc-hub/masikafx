@@ -224,7 +224,7 @@ export function useMultiVolatilityScan(enabled: boolean) {
           // ---- EVEN/ODD scan: high-quality signals only ----
           const eo = evenOddStats(ticks);
           const rf = riseFallStats(ticks);
-          if (ticks.length >= 150 && m.manipulation < 0.12) {
+          if (ticks.length >= 150 && m.manipulation < 0.14) {
             const digAll = ticks.map((t) => Math.abs(Math.round(t.price * 100)) % 10);
             const d200 = digAll.slice(-200);
             const d100 = digAll.slice(-100);
