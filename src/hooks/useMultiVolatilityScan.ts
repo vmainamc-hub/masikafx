@@ -191,16 +191,17 @@ export function useMultiVolatilityScan(enabled: boolean) {
             const coldOk = coldD === 0 || coldD === 2 || coldD === 4;
             const sl0 = slopeOf(0), sl1 = slopeOf(1), sl2 = slopeOf(2);
             const sl7 = slopeOf(7), sl8 = slopeOf(8), sl9 = slopeOf(9);
-            const highsHigh = pctNow[7] > 0.11 && pctNow[8] > 0.11 && pctNow[9] > 0.11;
-            const highsDecreasing = sl7 <= 0 && sl8 <= 0 && sl9 <= 0;
-            const lowsLow = pctNow[0] < 0.10 && pctNow[1] < 0.10 && pctNow[2] < 0.10;
-            const lowsRising = sl0 > 0 && sl1 > 0 && sl2 > 0;
+            const highsHigh = [pctNow[7], pctNow[8], pctNow[9]].filter((p) => p > 0.105).length >= 2;
+            const highsDecreasing = [sl7, sl8, sl9].filter((s) => s <= 0).length >= 2;
+            const lowsLow = [pctNow[0], pctNow[1], pctNow[2]].filter((p) => p < 0.105).length >= 2;
+            const lowsRising = [sl0, sl1, sl2].filter((s) => s > 0).length >= 2;
             const manipOk = m.manipulation < 0.20;
             if (
               hotOk && coldOk && highsHigh && highsDecreasing &&
-              lowsLow && lowsRising && manipOk && snaps.length >= 4 &&
-              ou7.pUnder > 0.70
+              lowsLow && lowsRising && manipOk && snaps.length >= 3 &&
+              ou7.pUnder > 0.68
             ) {
+
               const lastTick = ticks[ticks.length - 1];
               const entryPrice = lastTick?.price ?? 0;
               const stakePct = Math.min(5, Math.max(1, Math.round((ou7.pUnder - 0.70) * 100 / 2 + 1)));
@@ -223,7 +224,7 @@ export function useMultiVolatilityScan(enabled: boolean) {
           // ---- EVEN/ODD scan: high-quality signals only ----
           const eo = evenOddStats(ticks);
           const rf = riseFallStats(ticks);
-          if (ticks.length >= 150 && m.manipulation < 0.12) {
+          if (ticks.length >= 150 && m.manipulation < 0.14) {
             const digAll = ticks.map((t) => Math.abs(Math.round(t.price * 100)) % 10);
             const d200 = digAll.slice(-200);
             const d100 = digAll.slice(-100);
@@ -264,24 +265,25 @@ export function useMultiVolatilityScan(enabled: boolean) {
               mode = "REVERSAL";
               confBase = 62 + Math.min(20, (curStreak - 8) * 5) + Math.round((0.5 - Math.abs(ev200 - 0.5)) * 40);
             } else {
-              // TREND: strong sustained dominance across 50/100 + agreeing shift + baseline + momentum
-              const recentEven = ev50 >= 0.62 && ev100 >= 0.58 && ev20 >= 0.60;
-              const recentOdd = (1 - ev50) >= 0.62 && (1 - ev100) >= 0.58 && (1 - ev20) >= 0.60;
-              if (recentEven && shift > 0.05 && ev200 >= 0.50 && eo.continuation >= 0.58) {
+              // TREND: sustained dominance across 50/100 + agreeing shift + baseline + momentum
+              const recentEven = ev50 >= 0.60 && ev100 >= 0.56 && ev20 >= 0.58;
+              const recentOdd = (1 - ev50) >= 0.60 && (1 - ev100) >= 0.56 && (1 - ev20) >= 0.58;
+              if (recentEven && shift > 0.04 && ev200 >= 0.49 && eo.continuation >= 0.55) {
                 side = "EVEN";
                 mode = "TREND";
                 confBase = Math.round(ev50 * 50 + shift * 140 + eo.continuation * 30);
-              } else if (recentOdd && shift < -0.05 && ev200 <= 0.50 && eo.continuation >= 0.58) {
+              } else if (recentOdd && shift < -0.04 && ev200 <= 0.51 && eo.continuation >= 0.55) {
                 side = "ODD";
                 mode = "TREND";
                 confBase = Math.round((1 - ev50) * 50 + (-shift) * 140 + eo.continuation * 30);
               }
             }
 
-            if (side && altRate >= 0.32 && altRate <= 0.58 && altRate20 <= 0.65) {
-              const stableMomentum = !rf.exhaustion && rf.volatility < 1.2;
+            if (side && altRate >= 0.30 && altRate <= 0.60 && altRate20 <= 0.68) {
+              const stableMomentum = !rf.exhaustion && rf.volatility < 1.3;
               const conf = Math.min(96, confBase + (stableMomentum ? 8 : 0));
-              if (conf >= 75 && stableMomentum) {
+              if (conf >= 72 && stableMomentum) {
+
                 const lastTick = ticks[ticks.length - 1];
                 const entryPrice = lastTick?.price ?? 0;
                 eoOut.push({
