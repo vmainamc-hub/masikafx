@@ -213,17 +213,24 @@ function Dashboard() {
               />
             </div>
 
-            {/* UNDER 7 exhaustion + UNDER 5 recovery scanner */}
-            <Under7ExhaustionPanel
-              signals={u7Scan.signals}
-              history={u7Scan.history}
-              winRate={u7Scan.winRate}
-              ranking={u7Scan.ranking}
-              status={u7Scan.status}
-              scannedCount={u7Scan.scannedCount}
-            />
+            {/* OVER 5 + UNDER 4 scanners */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Over5Under4Panel
+                type="OVER5"
+                signals={o5u4.over5Signals}
+                history={o5u4.over5History}
+                status={o5u4.status}
+                scannedCount={o5u4.scannedCount}
+              />
+              <Over5Under4Panel
+                type="UNDER4"
+                signals={o5u4.under4Signals}
+                history={o5u4.under4History}
+                status={o5u4.status}
+                scannedCount={o5u4.scannedCount}
+              />
+            </div>
 
-            <SignalBacktestPanel history={u7Scan.history} thresholds={u7Scan.thresholds} />
 
 
             <MarketIntel ticks={view} />
