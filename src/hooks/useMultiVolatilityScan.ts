@@ -265,24 +265,25 @@ export function useMultiVolatilityScan(enabled: boolean) {
               mode = "REVERSAL";
               confBase = 62 + Math.min(20, (curStreak - 8) * 5) + Math.round((0.5 - Math.abs(ev200 - 0.5)) * 40);
             } else {
-              // TREND: strong sustained dominance across 50/100 + agreeing shift + baseline + momentum
-              const recentEven = ev50 >= 0.62 && ev100 >= 0.58 && ev20 >= 0.60;
-              const recentOdd = (1 - ev50) >= 0.62 && (1 - ev100) >= 0.58 && (1 - ev20) >= 0.60;
-              if (recentEven && shift > 0.05 && ev200 >= 0.50 && eo.continuation >= 0.58) {
+              // TREND: sustained dominance across 50/100 + agreeing shift + baseline + momentum
+              const recentEven = ev50 >= 0.60 && ev100 >= 0.56 && ev20 >= 0.58;
+              const recentOdd = (1 - ev50) >= 0.60 && (1 - ev100) >= 0.56 && (1 - ev20) >= 0.58;
+              if (recentEven && shift > 0.04 && ev200 >= 0.49 && eo.continuation >= 0.55) {
                 side = "EVEN";
                 mode = "TREND";
                 confBase = Math.round(ev50 * 50 + shift * 140 + eo.continuation * 30);
-              } else if (recentOdd && shift < -0.05 && ev200 <= 0.50 && eo.continuation >= 0.58) {
+              } else if (recentOdd && shift < -0.04 && ev200 <= 0.51 && eo.continuation >= 0.55) {
                 side = "ODD";
                 mode = "TREND";
                 confBase = Math.round((1 - ev50) * 50 + (-shift) * 140 + eo.continuation * 30);
               }
             }
 
-            if (side && altRate >= 0.32 && altRate <= 0.58 && altRate20 <= 0.65) {
-              const stableMomentum = !rf.exhaustion && rf.volatility < 1.2;
+            if (side && altRate >= 0.30 && altRate <= 0.60 && altRate20 <= 0.68) {
+              const stableMomentum = !rf.exhaustion && rf.volatility < 1.3;
               const conf = Math.min(96, confBase + (stableMomentum ? 8 : 0));
-              if (conf >= 75 && stableMomentum) {
+              if (conf >= 72 && stableMomentum) {
+
                 const lastTick = ticks[ticks.length - 1];
                 const entryPrice = lastTick?.price ?? 0;
                 eoOut.push({
