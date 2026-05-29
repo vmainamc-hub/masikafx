@@ -219,22 +219,27 @@ export function useAdvancedOverUnderScan(enabled: boolean) {
             const hotOk = hotD === 0 || hotD === 2 || hotD === 4;
             const coldOk = coldD === 5 || coldD === 7 || coldD === 9;
 
-            // Digits 0,1,2 elevated above expected 10%.
-            const lowsElevated = pct[0] > 0.11 && pct[1] > 0.11 && pct[2] > 0.11;
-            // ...and exhausting (flat / not climbing).
-            const lowsExhausting =
-              (flat0 > 0.55 || sl0 <= 0) &&
-              (flat1 > 0.55 || sl1 <= 0) &&
-              (flat2 > 0.55 || sl2 <= 0);
+            // Digits 0,1,2 elevated above expected 10% (≥2 of 3 must qualify).
+            const lowsCount = [pct[0], pct[1], pct[2]].filter((p) => p > 0.105).length;
+            const lowsElevated = lowsCount >= 2;
+            // ...and exhausting (flat / not climbing) — ≥2 of 3.
+            const exhCount =
+              ((flat0 > 0.50 || sl0 <= 0) ? 1 : 0) +
+              ((flat1 > 0.50 || sl1 <= 0) ? 1 : 0) +
+              ((flat2 > 0.50 || sl2 <= 0) ? 1 : 0);
+            const lowsExhausting = exhCount >= 2;
             const exhaustConfirmed = lowsElevated && flat0 > 0.55 && flat1 > 0.55 && flat2 > 0.55;
 
-            // Digits 7,8,9 suppressed AND rising (hidden buildup).
-            const highsSuppressed = pct[7] < 0.10 && pct[8] < 0.10 && pct[9] < 0.10;
-            const highsRising = sl7 > 0 && sl8 > 0 && sl9 > 0;
+            // Digits 7,8,9 suppressed AND ≥2 of 3 rising (hidden buildup).
+            const highsCount = [pct[7], pct[8], pct[9]].filter((p) => p < 0.105).length;
+            const highsSuppressed = highsCount >= 2;
+            const risingCount = [sl7, sl8, sl9].filter((s) => s > 0).length;
+            const highsRising = risingCount >= 2;
 
             const manipOk = intel.manipulation < 0.20;
             const allOk = hotOk && coldOk && lowsElevated && lowsExhausting &&
-                          highsSuppressed && highsRising && manipOk && snaps.length >= 4;
+                          highsSuppressed && highsRising && manipOk && snaps.length >= 3;
+
 
             if (allOk) {
               const base = 65;
