@@ -57,8 +57,9 @@ export function Over5Under4Panel({ type, signals, history, status, scannedCount 
                   </span>
                 </div>
                 <div className="mt-1 grid grid-cols-2 gap-x-3 text-[10px] tabular text-foreground/80">
-                  <span>{isOver ? "pOver5" : "pUnder4"} {(s.pOver === (isOver ? s.pOver : s.pOver), isOver ? s.pOver * 100 : s.pUnder * 100).toFixed(1)}%</span>
-                  <span>{isOver ? "pUnder5" : "pOver4"} {(isOver ? s.pUnder * 100 : s.pOver * 100).toFixed(1)}%</span>
+                  <span>{isOver ? "pOver5" : "pUnder4"} {((isOver ? s.pOver : s.pUnder) * 100).toFixed(1)}%</span>
+                  <span>{isOver ? "pUnder5" : "pOver4"} {((isOver ? s.pUnder : s.pOver) * 100).toFixed(1)}%</span>
+
                   <span>Manip {mp.toFixed(1)}%</span>
                   <span>Entry {s.entryPrice.toFixed(4)}</span>
                   <span>Last digit {s.lastDigit}</span>
