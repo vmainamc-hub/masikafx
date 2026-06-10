@@ -19,6 +19,8 @@ import { useOver5Under4Scan } from "@/hooks/useOver5Under4Scan";
 import { Over5Under4Panel } from "@/components/modules/Over5Under4Panel";
 import { DigitPercentages } from "@/components/modules/DigitPercentages";
 import { RiseFallScannerPanel } from "@/components/modules/RiseFallScannerPanel";
+import { DerivAutoTraderPanel } from "@/components/modules/DerivAutoTraderPanel";
+import type { AutoSignal } from "@/hooks/useDerivAutoTrader";
 
 
 export const Route = createFileRoute("/")({
@@ -49,6 +51,19 @@ function Dashboard() {
   const scan = useMultiVolatilityScan(running);
   const advScan = useAdvancedOverUnderScan(running);
   const o5u4 = useOver5Under4Scan(running);
+
+  // Aggregate over/under signals from every scanner into a single feed for the auto-trader.
+  // Bucket per 45s so the same symbol can re-trade after each cooldown but never twice within it.
+  const autoSignals = useMemo<AutoSignal[]>(() => {
+    const bucket = Math.floor(Date.now() / 45_000);
+    const out: AutoSignal[] = [];
+    for (const s of advScan.over2Signals) out.push({ id: `OVER2:${s.symbol}:${bucket}`, symbol: s.symbol, type: "OVER2", conf: s.conf });
+    for (const s of advScan.under7Signals) out.push({ id: `UNDER7:${s.symbol}:${bucket}`, symbol: s.symbol, type: "UNDER7", conf: s.conf });
+    for (const m of scan.matches) out.push({ id: `UNDER7:${m.symbol}:${bucket}`, symbol: m.symbol, type: "UNDER7", conf: m.conf });
+    for (const s of o5u4.over5Signals) out.push({ id: `OVER5:${s.symbol}:${bucket}`, symbol: s.symbol, type: "OVER5", conf: s.conf });
+    for (const s of o5u4.under4Signals) out.push({ id: `UNDER4:${s.symbol}:${bucket}`, symbol: s.symbol, type: "UNDER4", conf: s.conf });
+    return out;
+  }, [advScan.over2Signals, advScan.under7Signals, scan.matches, o5u4.over5Signals, o5u4.under4Signals]);
 
   const onUpload = async (file: File) => {
     const text = await file.text();
@@ -234,6 +249,8 @@ function Dashboard() {
 
 
             <RiseFallScannerPanel ticks={ticks} marketName={DERIV_SYMBOLS.find(s=>s.symbol===source)?.name ?? source} />
+
+            <DerivAutoTraderPanel signals={autoSignals} />
 
             <MarketIntel ticks={view} />
           </>
