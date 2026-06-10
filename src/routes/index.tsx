@@ -18,6 +18,7 @@ import { AdvancedScannerFeed } from "@/components/modules/AdvancedScannerFeed";
 import { useOver5Under4Scan } from "@/hooks/useOver5Under4Scan";
 import { Over5Under4Panel } from "@/components/modules/Over5Under4Panel";
 import { DigitPercentages } from "@/components/modules/DigitPercentages";
+import { RiseFallScannerPanel } from "@/components/modules/RiseFallScannerPanel";
 
 
 export const Route = createFileRoute("/")({
@@ -232,6 +233,7 @@ function Dashboard() {
             </div>
 
 
+            <RiseFallScannerPanel ticks={ticks} marketName={DERIV_SYMBOLS.find(s=>s.symbol===source)?.name ?? source} />
 
             <MarketIntel ticks={view} />
           </>
