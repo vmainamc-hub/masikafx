@@ -19,6 +19,8 @@ import { useOver5Under4Scan } from "@/hooks/useOver5Under4Scan";
 import { Over5Under4Panel } from "@/components/modules/Over5Under4Panel";
 import { DigitPercentages } from "@/components/modules/DigitPercentages";
 import { RiseFallScannerPanel } from "@/components/modules/RiseFallScannerPanel";
+import { DerivAutoTraderPanel } from "@/components/modules/DerivAutoTraderPanel";
+import type { AutoSignal } from "@/hooks/useDerivAutoTrader";
 
 
 export const Route = createFileRoute("/")({
