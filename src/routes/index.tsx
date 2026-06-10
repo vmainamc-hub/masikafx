@@ -250,6 +250,8 @@ function Dashboard() {
 
             <RiseFallScannerPanel ticks={ticks} marketName={DERIV_SYMBOLS.find(s=>s.symbol===source)?.name ?? source} />
 
+            <DerivAutoTraderPanel signals={autoSignals} />
+
             <MarketIntel ticks={view} />
           </>
         )}
