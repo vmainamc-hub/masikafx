@@ -231,16 +231,12 @@ export function DerivAutoTraderPanel({ signals }: Props) {
                 className="flex items-center justify-between text-[10px] tabular border border-border/30 bg-secondary/20 rounded px-1.5 py-1"
               >
                 <span className="flex items-center gap-1.5">
-                  {e.status === "WON" && (
-                    <CheckCircle2 size={11} className="text-[var(--bull)]" />
-                  )}
+                  {e.status === "WON" && <CheckCircle2 size={11} className="text-[var(--bull)]" />}
                   {e.status === "LOST" && <XCircle size={11} className="text-[var(--bear)]" />}
                   {(e.status === "OPEN" || e.status === "PENDING") && (
                     <Clock size={11} className="opacity-60" />
                   )}
-                  {e.status === "ERROR" && (
-                    <ShieldAlert size={11} className="text-[var(--warn)]" />
-                  )}
+                  {e.status === "ERROR" && <ShieldAlert size={11} className="text-[var(--warn)]" />}
                   <span>{new Date(e.ts).toLocaleTimeString()}</span>
                   <span className="opacity-70">{e.symbol}</span>
                   <span className="px-1 py-0.5 rounded bg-foreground/10">{e.type}</span>
@@ -273,9 +269,9 @@ export function DerivAutoTraderPanel({ signals }: Props) {
 
       <p className="mt-2 text-[9px] opacity-60 leading-relaxed">
         Token is stored only in your browser's localStorage and sent directly to
-        wss://ws.derivws.com. Trade contracts: OVER 2 → DIGITOVER 2 · UNDER 7 → DIGITUNDER
-        7 · OVER 5 → DIGITOVER 5 · UNDER 4 → DIGITUNDER 4. Digit contracts use tick
-        durations; "1 second" ≈ 1 tick on Volatility 1s indices.
+        wss://ws.derivws.com. Trade contracts: OVER 2 → DIGITOVER 2 · UNDER 7 → DIGITUNDER 7 · OVER
+        5 → DIGITOVER 5 · UNDER 4 → DIGITUNDER 4. Digit contracts use tick durations; "1 second" ≈ 1
+        tick on Volatility 1s indices.
       </p>
     </Panel>
   );
