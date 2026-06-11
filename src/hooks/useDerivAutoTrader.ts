@@ -13,8 +13,8 @@ const WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`;
 export type AutoSignalType = "OVER2" | "UNDER7" | "OVER5" | "UNDER4";
 
 export type AutoSignal = {
-  id: string;          // stable unique id per signal emission
-  symbol: string;      // deriv symbol
+  id: string;
+  symbol: string;
   type: AutoSignalType;
   conf?: number;
 };
@@ -36,39 +36,93 @@ export type TradeLogEntry = {
 type Options = {
   enabled: boolean;
   token: string;
-  stake: number;       // USD
+  stake: number;
   durationTicks: number;
   signals: AutoSignal[];
 };
 
-const CONTRACT_MAP: Record<AutoSignalType, { contract_type: "DIGITOVER" | "DIGITUNDER"; barrier: string }> = {
-  OVER2:  { contract_type: "DIGITOVER",  barrier: "2" },
+type DerivError = {
+  code?: string;
+  message?: string;
+};
+
+type DerivMessage = {
+  req_id?: number;
+  msg_type?: string;
+  error?: DerivError;
+  authorize?: {
+    balance?: number | string;
+    currency?: string;
+    loginid?: string;
+    is_virtual?: boolean | number;
+  };
+  balance?: {
+    balance?: number | string;
+    currency?: string;
+  };
+  buy?: {
+    contract_id: number;
+    buy_price?: number | string;
+    payout?: number | string;
+  };
+  proposal_open_contract?: {
+    contract_id: number;
+    is_sold?: boolean | number;
+    profit?: number | string;
+    underlying?: string;
+  };
+};
+
+type DerivPayload = Record<string, unknown>;
+
+const CONTRACT_MAP: Record<
+  AutoSignalType,
+  { contract_type: "DIGITOVER" | "DIGITUNDER"; barrier: string }
+> = {
+  OVER2: { contract_type: "DIGITOVER", barrier: "2" },
   UNDER7: { contract_type: "DIGITUNDER", barrier: "7" },
-  OVER5:  { contract_type: "DIGITOVER",  barrier: "5" },
+  OVER5: { contract_type: "DIGITOVER", barrier: "5" },
   UNDER4: { contract_type: "DIGITUNDER", barrier: "4" },
 };
 
+const formatDerivError = (err?: DerivError) => {
+  const code = err?.code ? `${err.code}: ` : "";
+  const message = err?.message || "Deriv request failed";
+  return `${code}${message}`;
+};
+
 export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signals }: Options) {
-  const [status, setStatus] = useState<"idle" | "connecting" | "authorizing" | "ready" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "connecting" | "authorizing" | "ready" | "error">(
+    "idle",
+  );
   const [error, setError] = useState<string | null>(null);
-  const [balance, setBalance] = useState<{ amount: number; currency: string; loginid?: string; isVirtual?: boolean } | null>(null);
+  const [balance, setBalance] = useState<{
+    amount: number;
+    currency: string;
+    loginid?: string;
+    isVirtual?: boolean;
+  } | null>(null);
   const [log, setLog] = useState<TradeLogEntry[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reqIdRef = useRef(1);
-  const pendingReqs = useRef<Map<number, (msg: any) => void>>(new Map());
+  const pendingReqs = useRef<Map<number, (msg: DerivMessage) => void>>(new Map());
   const placedSignalIds = useRef<Set<string>>(new Set());
   const openBySymbol = useRef<Set<string>>(new Set());
   const contractToLog = useRef<Map<number, string>>(new Map()); // contractId -> log id
-  const reqToLog = useRef<Map<number, string>>(new Map());      // buy req_id -> log id
+  const reqToLog = useRef<Map<number, string>>(new Map()); // buy req_id -> log id
 
   // Stable refs for the latest values used inside the persistent WS handler
   const stakeRef = useRef(stake);
   const durRef = useRef(durationTicks);
-  useEffect(() => { stakeRef.current = stake; }, [stake]);
-  useEffect(() => { durRef.current = durationTicks; }, [durationTicks]);
+  useEffect(() => {
+    stakeRef.current = stake;
+  }, [stake]);
+  useEffect(() => {
+    durRef.current = durationTicks;
+  }, [durationTicks]);
 
-  const send = (payload: any, onReply?: (msg: any) => void) => {
+  const send = (payload: DerivPayload, onReply?: (msg: DerivMessage) => void) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const req_id = reqIdRef.current++;
@@ -83,8 +137,9 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
 
   // Connect / auth lifecycle
   useEffect(() => {
-    if (!enabled || !token) {
-      try { wsRef.current?.close(); } catch {}
+    const cleanToken = token.trim();
+    if (!enabled || !cleanToken) {
+      wsRef.current?.close();
       wsRef.current = null;
       setStatus("idle");
       setError(null);
@@ -94,22 +149,29 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
     setStatus("connecting");
     setError(null);
     let ws: WebSocket;
-    try { ws = new WebSocket(WS_URL); } catch (e: any) {
+    try {
+      ws = new WebSocket(WS_URL);
+    } catch (e) {
       setStatus("error");
-      setError(e?.message ?? "ws init failed");
+      setError(e instanceof Error ? e.message : "ws init failed");
       return;
     }
     wsRef.current = ws;
 
     ws.onopen = () => {
       setStatus("authorizing");
-      send({ authorize: token }, (msg) => {
+      send({ authorize: cleanToken }, (msg) => {
         if (msg.error) {
           setStatus("error");
-          setError(msg.error.message || "authorize failed");
+          setError(formatDerivError(msg.error));
           return;
         }
         const auth = msg.authorize;
+        if (!auth?.currency) {
+          setStatus("error");
+          setError("Authorize response missing account details");
+          return;
+        }
         setBalance({
           amount: Number(auth.balance),
           currency: auth.currency,
@@ -124,8 +186,12 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
     };
 
     ws.onmessage = (ev) => {
-      let msg: any;
-      try { msg = JSON.parse(ev.data); } catch { return; }
+      let msg: DerivMessage;
+      try {
+        msg = JSON.parse(ev.data) as DerivMessage;
+      } catch {
+        return;
+      }
 
       // Resolve any specific request callback first
       if (msg.req_id && pendingReqs.current.has(msg.req_id)) {
@@ -136,9 +202,10 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
 
       // Balance subscription
       if (msg.msg_type === "balance" && msg.balance) {
+        const nextBalance = msg.balance;
         setBalance((prev) => ({
-          amount: Number(msg.balance.balance),
-          currency: msg.balance.currency,
+          amount: Number(nextBalance.balance),
+          currency: nextBalance.currency ?? prev?.currency ?? "USD",
           loginid: prev?.loginid,
           isVirtual: prev?.isVirtual,
         }));
@@ -156,7 +223,7 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
             payout: Number(msg.buy.payout),
           });
           contractToLog.current.set(msg.buy.contract_id, logId);
-          reqToLog.current.delete(msg.req_id);
+          if (msg.req_id) reqToLog.current.delete(msg.req_id);
         }
       }
 
@@ -171,18 +238,21 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
             profit,
           });
           // free up the symbol slot
-          openBySymbol.current.delete(c.underlying);
+          if (c.underlying) openBySymbol.current.delete(c.underlying);
           contractToLog.current.delete(c.contract_id);
         }
       }
 
       if (msg.error && !msg.req_id) {
         // ambient error
-        setError(msg.error.message || String(msg.error.code));
+        setError(formatDerivError(msg.error));
       }
     };
 
-    ws.onerror = () => { setStatus("error"); setError("ws error"); };
+    ws.onerror = () => {
+      setStatus("error");
+      setError("ws error");
+    };
     ws.onclose = () => {
       if (wsRef.current === ws) {
         wsRef.current = null;
@@ -191,12 +261,11 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
     };
 
     return () => {
-      try {
-        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ forget_all: ["balance", "proposal_open_contract"] }));
-        ws.close();
-      } catch {}
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ forget_all: ["balance", "proposal_open_contract"] }));
+      }
+      ws.close();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, token]);
 
   // Reset placed-signal tracking when toggled off so the next session can trade again
@@ -252,7 +321,7 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
       },
       (msg) => {
         if (msg.error) {
-          updateLog(logId, { status: "ERROR", error: msg.error.message });
+          updateLog(logId, { status: "ERROR", error: formatDerivError(msg.error) });
           openBySymbol.current.delete(sig.symbol);
           return;
         }
@@ -265,19 +334,25 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
           });
           contractToLog.current.set(msg.buy.contract_id, logId);
         }
-      }
+      },
     );
     if (reqId !== undefined) reqToLog.current.set(reqId, logId);
   };
 
   const stats = log.reduce(
     (acc, e) => {
-      if (e.status === "WON") { acc.wins++; acc.profit += e.profit ?? 0; }
-      else if (e.status === "LOST") { acc.losses++; acc.profit += e.profit ?? 0; }
-      else if (e.status === "OPEN" || e.status === "PENDING") { acc.open++; }
+      if (e.status === "WON") {
+        acc.wins++;
+        acc.profit += e.profit ?? 0;
+      } else if (e.status === "LOST") {
+        acc.losses++;
+        acc.profit += e.profit ?? 0;
+      } else if (e.status === "OPEN" || e.status === "PENDING") {
+        acc.open++;
+      }
       return acc;
     },
-    { wins: 0, losses: 0, open: 0, profit: 0 }
+    { wins: 0, losses: 0, open: 0, profit: 0 },
   );
 
   return { status, error, balance, log, stats };

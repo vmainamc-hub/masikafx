@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Panel } from "../Panel";
-import { Bot, KeyRound, Power, Wallet, ShieldAlert, CheckCircle2, XCircle, Clock } from "lucide-react";
+import {
+  Bot,
+  KeyRound,
+  Power,
+  Wallet,
+  ShieldAlert,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  HelpCircle,
+} from "lucide-react";
 import { useDerivAutoTrader, type AutoSignal } from "@/hooks/useDerivAutoTrader";
 
 const TOKEN_KEY = "deriv_api_token_v1";
@@ -15,6 +25,7 @@ export function DerivAutoTraderPanel({ signals }: Props) {
   const [stake, setStake] = useState(2);
   const [duration, setDuration] = useState(1); // ticks
   const [showToken, setShowToken] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? window.localStorage.getItem(TOKEN_KEY) : null;
@@ -22,9 +33,10 @@ export function DerivAutoTraderPanel({ signals }: Props) {
   }, []);
 
   const saveToken = (t: string) => {
-    setToken(t);
+    const cleaned = t.trim();
+    setToken(cleaned);
     if (typeof window !== "undefined") {
-      if (t) window.localStorage.setItem(TOKEN_KEY, t);
+      if (cleaned) window.localStorage.setItem(TOKEN_KEY, cleaned);
       else window.localStorage.removeItem(TOKEN_KEY);
     }
   };
@@ -80,15 +92,24 @@ export function DerivAutoTraderPanel({ signals }: Props) {
           <div>
             <label className="text-[10px] uppercase tracking-wider opacity-70">Stake (USD)</label>
             <input
-              type="number" min={0.35} step={0.5} value={stake}
+              type="number"
+              min={0.35}
+              step={0.5}
+              value={stake}
               onChange={(e) => setStake(Math.max(0.35, Number(e.target.value) || 0))}
               className="w-full mt-1 h-8 px-2 rounded-md bg-secondary/40 border border-border/60 text-[11px] tabular"
             />
           </div>
           <div>
-            <label className="text-[10px] uppercase tracking-wider opacity-70">Duration (ticks)</label>
+            <label className="text-[10px] uppercase tracking-wider opacity-70">
+              Duration (ticks)
+            </label>
             <input
-              type="number" min={1} max={10} step={1} value={duration}
+              type="number"
+              min={1}
+              max={10}
+              step={1}
+              value={duration}
               onChange={(e) => setDuration(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
               className="w-full mt-1 h-8 px-2 rounded-md bg-secondary/40 border border-border/60 text-[11px] tabular"
             />
@@ -116,8 +137,12 @@ export function DerivAutoTraderPanel({ signals }: Props) {
             {balance && (
               <span className="flex items-center gap-1 ml-2">
                 <Wallet size={11} className="opacity-60" />
-                <span className="tabular">{balance.amount.toFixed(2)} {balance.currency}</span>
-                <span className={`px-1.5 py-0.5 rounded text-[9px] ${balance.isVirtual ? "bg-[var(--bull)]/15 text-[var(--bull)]" : "bg-[var(--warn)]/20 text-[var(--warn)]"}`}>
+                <span className="tabular">
+                  {balance.amount.toFixed(2)} {balance.currency}
+                </span>
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[9px] ${balance.isVirtual ? "bg-[var(--bull)]/15 text-[var(--bull)]" : "bg-[var(--warn)]/20 text-[var(--warn)]"}`}
+                >
                   {balance.isVirtual ? "DEMO" : "REAL"}
                 </span>
                 {balance.loginid && <span className="opacity-60">· {balance.loginid}</span>}
@@ -129,18 +154,62 @@ export function DerivAutoTraderPanel({ signals }: Props) {
             <span className="text-[var(--bear)]">{stats.losses}L</span>
             <span className="opacity-70">{stats.open} open</span>
             <span className={stats.profit >= 0 ? "text-[var(--bull)]" : "text-[var(--bear)]"}>
-              {stats.profit >= 0 ? "+" : ""}{stats.profit.toFixed(2)}
+              {stats.profit >= 0 ? "+" : ""}
+              {stats.profit.toFixed(2)}
             </span>
           </div>
         </div>
 
         {live && (
           <div className="flex items-center gap-1.5 text-[10px] text-[var(--warn)]">
-            <ShieldAlert size={11}/> Token is for a REAL account. Trades will use real funds.
+            <ShieldAlert size={11} /> Token is for a REAL account. Trades will use real funds.
           </div>
         )}
         {error && (
-          <div className="text-[10px] text-[var(--bear)]">⚠ {error}</div>
+          <div className="rounded-md border border-[var(--bear)]/40 bg-[var(--bear)]/10 px-2.5 py-2 text-[10px] text-[var(--bear)] leading-relaxed">
+            <div className="font-semibold">Deriv says: {error}</div>
+            <div className="mt-1 opacity-90">
+              If this says InvalidToken, create a fresh token while your Demo account is selected,
+              tick Trade, set an expiry date, then copy the token value shown after creation.
+            </div>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowHelp((s) => !s)}
+          className="w-full rounded-md border border-border/50 bg-secondary/25 px-2.5 py-2 text-left text-[10px] leading-relaxed flex gap-2"
+        >
+          <HelpCircle size={13} className="mt-0.5 text-[var(--neon)] shrink-0" />
+          <span>
+            <span className="font-semibold uppercase tracking-wider">Deriv token checklist</span>
+            <span className="block opacity-70">
+              For the new/migrated Deriv API page shown in your screenshot.
+            </span>
+          </span>
+        </button>
+        {showHelp && (
+          <div className="rounded-md border border-border/40 bg-secondary/20 px-3 py-2 text-[10px] leading-relaxed opacity-85 space-y-1.5">
+            <p>
+              1. On developers.deriv.com, enter a token name using only letters/numbers, spaces, or
+              underscores.
+            </p>
+            <p>
+              2. Tap Token expiry date and choose a date within 90 days. Leaving expiry empty can
+              stop token creation on the new page.
+            </p>
+            <p>
+              3. Under authorisation scope, tick Trade. Read is normally included by authorization;
+              do not use only Account management or Application insights.
+            </p>
+            <p>
+              4. After creating it, copy the actual token value immediately. Do not copy the token
+              name.
+            </p>
+            <p>
+              5. If your account was migrated, create the token from the same login/account you want
+              to trade, preferably the Demo VRTC account.
+            </p>
+          </div>
         )}
       </div>
 
@@ -151,31 +220,45 @@ export function DerivAutoTraderPanel({ signals }: Props) {
           <span className="tabular">{log.length}</span>
         </div>
         {log.length === 0 ? (
-          <p className="text-[11px] opacity-60 px-1 py-2">No trades placed yet. Start the trader and wait for a qualifying signal.</p>
+          <p className="text-[11px] opacity-60 px-1 py-2">
+            No trades placed yet. Start the trader and wait for a qualifying signal.
+          </p>
         ) : (
           <ul className="space-y-0.5 max-h-56 overflow-y-auto pr-1">
             {log.map((e) => (
-              <li key={e.id} className="flex items-center justify-between text-[10px] tabular border border-border/30 bg-secondary/20 rounded px-1.5 py-1">
+              <li
+                key={e.id}
+                className="flex items-center justify-between text-[10px] tabular border border-border/30 bg-secondary/20 rounded px-1.5 py-1"
+              >
                 <span className="flex items-center gap-1.5">
-                  {e.status === "WON" && <CheckCircle2 size={11} className="text-[var(--bull)]"/>}
-                  {e.status === "LOST" && <XCircle size={11} className="text-[var(--bear)]"/>}
-                  {(e.status === "OPEN" || e.status === "PENDING") && <Clock size={11} className="opacity-60"/>}
-                  {e.status === "ERROR" && <ShieldAlert size={11} className="text-[var(--warn)]"/>}
+                  {e.status === "WON" && <CheckCircle2 size={11} className="text-[var(--bull)]" />}
+                  {e.status === "LOST" && <XCircle size={11} className="text-[var(--bear)]" />}
+                  {(e.status === "OPEN" || e.status === "PENDING") && (
+                    <Clock size={11} className="opacity-60" />
+                  )}
+                  {e.status === "ERROR" && <ShieldAlert size={11} className="text-[var(--warn)]" />}
                   <span>{new Date(e.ts).toLocaleTimeString()}</span>
                   <span className="opacity-70">{e.symbol}</span>
                   <span className="px-1 py-0.5 rounded bg-foreground/10">{e.type}</span>
                 </span>
                 <span className="flex items-center gap-2">
                   <span className="opacity-70">${e.stake.toFixed(2)}</span>
-                  <span className={
-                    e.status === "WON" ? "text-[var(--bull)]"
-                    : e.status === "LOST" ? "text-[var(--bear)]"
-                    : e.status === "ERROR" ? "text-[var(--warn)]"
-                    : "opacity-70"
-                  }>
-                    {e.status === "ERROR" ? (e.error?.slice(0, 28) ?? "error") :
-                     e.profit != null ? `${e.profit >= 0 ? "+" : ""}${e.profit.toFixed(2)}` :
-                     e.status}
+                  <span
+                    className={
+                      e.status === "WON"
+                        ? "text-[var(--bull)]"
+                        : e.status === "LOST"
+                          ? "text-[var(--bear)]"
+                          : e.status === "ERROR"
+                            ? "text-[var(--warn)]"
+                            : "opacity-70"
+                    }
+                  >
+                    {e.status === "ERROR"
+                      ? (e.error?.slice(0, 28) ?? "error")
+                      : e.profit != null
+                        ? `${e.profit >= 0 ? "+" : ""}${e.profit.toFixed(2)}`
+                        : e.status}
                   </span>
                 </span>
               </li>
@@ -185,9 +268,10 @@ export function DerivAutoTraderPanel({ signals }: Props) {
       </div>
 
       <p className="mt-2 text-[9px] opacity-60 leading-relaxed">
-        Token is stored only in your browser's localStorage and sent directly to wss://ws.derivws.com.
-        Trade contracts: OVER 2 → DIGITOVER 2 · UNDER 7 → DIGITUNDER 7 · OVER 5 → DIGITOVER 5 · UNDER 4 → DIGITUNDER 4.
-        Digit contracts use tick durations; "1 second" ≈ 1 tick on Volatility 1s indices.
+        Token is stored only in your browser's localStorage and sent directly to
+        wss://ws.derivws.com. Trade contracts: OVER 2 → DIGITOVER 2 · UNDER 7 → DIGITUNDER 7 · OVER
+        5 → DIGITOVER 5 · UNDER 4 → DIGITUNDER 4. Digit contracts use tick durations; "1 second" ≈ 1
+        tick on Volatility 1s indices.
       </p>
     </Panel>
   );
