@@ -334,19 +334,25 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
           });
           contractToLog.current.set(msg.buy.contract_id, logId);
         }
-      }
+      },
     );
     if (reqId !== undefined) reqToLog.current.set(reqId, logId);
   };
 
   const stats = log.reduce(
     (acc, e) => {
-      if (e.status === "WON") { acc.wins++; acc.profit += e.profit ?? 0; }
-      else if (e.status === "LOST") { acc.losses++; acc.profit += e.profit ?? 0; }
-      else if (e.status === "OPEN" || e.status === "PENDING") { acc.open++; }
+      if (e.status === "WON") {
+        acc.wins++;
+        acc.profit += e.profit ?? 0;
+      } else if (e.status === "LOST") {
+        acc.losses++;
+        acc.profit += e.profit ?? 0;
+      } else if (e.status === "OPEN" || e.status === "PENDING") {
+        acc.open++;
+      }
       return acc;
     },
-    { wins: 0, losses: 0, open: 0, profit: 0 }
+    { wins: 0, losses: 0, open: 0, profit: 0 },
   );
 
   return { status, error, balance, log, stats };
