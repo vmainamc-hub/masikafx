@@ -13,8 +13,8 @@ const WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`;
 export type AutoSignalType = "OVER2" | "UNDER7" | "OVER5" | "UNDER4";
 
 export type AutoSignal = {
-  id: string;          // stable unique id per signal emission
-  symbol: string;      // deriv symbol
+  id: string;
+  symbol: string;
   type: AutoSignalType;
   conf?: number;
 };
@@ -36,19 +36,56 @@ export type TradeLogEntry = {
 type Options = {
   enabled: boolean;
   token: string;
-  stake: number;       // USD
+  stake: number;
   durationTicks: number;
   signals: AutoSignal[];
 };
 
-const CONTRACT_MAP: Record<AutoSignalType, { contract_type: "DIGITOVER" | "DIGITUNDER"; barrier: string }> = {
-  OVER2:  { contract_type: "DIGITOVER",  barrier: "2" },
+type DerivError = {
+  code?: string;
+  message?: string;
+};
+
+type DerivMessage = {
+  req_id?: number;
+  msg_type?: string;
+  error?: DerivError;
+  authorize?: {
+    balance?: number | string;
+    currency?: string;
+    loginid?: string;
+    is_virtual?: boolean | number;
+  };
+  balance?: {
+    balance?: number | string;
+    currency?: string;
+  };
+  buy?: {
+    contract_id: number;
+    buy_price?: number | string;
+    payout?: number | string;
+  };
+  proposal_open_contract?: {
+    contract_id: number;
+    is_sold?: boolean | number;
+    profit?: number | string;
+    underlying?: string;
+  };
+};
+
+type DerivPayload = Record<string, unknown>;
+
+const CONTRACT_MAP: Record<
+  AutoSignalType,
+  { contract_type: "DIGITOVER" | "DIGITUNDER"; barrier: string }
+> = {
+  OVER2: { contract_type: "DIGITOVER", barrier: "2" },
   UNDER7: { contract_type: "DIGITUNDER", barrier: "7" },
-  OVER5:  { contract_type: "DIGITOVER",  barrier: "5" },
+  OVER5: { contract_type: "DIGITOVER", barrier: "5" },
   UNDER4: { contract_type: "DIGITUNDER", barrier: "4" },
 };
 
-const formatDerivError = (err: any) => {
+const formatDerivError = (err?: DerivError) => {
   const code = err?.code ? `${err.code}: ` : "";
   const message = err?.message || "Deriv request failed";
   return `${code}${message}`;
