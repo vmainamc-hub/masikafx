@@ -139,7 +139,7 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
   useEffect(() => {
     const cleanToken = token.trim();
     if (!enabled || !cleanToken) {
-      try { wsRef.current?.close(); } catch {}
+      wsRef.current?.close();
       wsRef.current = null;
       setStatus("idle");
       setError(null);
@@ -149,9 +149,11 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
     setStatus("connecting");
     setError(null);
     let ws: WebSocket;
-    try { ws = new WebSocket(WS_URL); } catch (e: any) {
+    try {
+      ws = new WebSocket(WS_URL);
+    } catch (e) {
       setStatus("error");
-      setError(e?.message ?? "ws init failed");
+      setError(e instanceof Error ? e.message : "ws init failed");
       return;
     }
     wsRef.current = ws;
@@ -165,6 +167,11 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
           return;
         }
         const auth = msg.authorize;
+        if (!auth?.currency) {
+          setStatus("error");
+          setError("Authorize response missing account details");
+          return;
+        }
         setBalance({
           amount: Number(auth.balance),
           currency: auth.currency,
@@ -179,8 +186,12 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
     };
 
     ws.onmessage = (ev) => {
-      let msg: any;
-      try { msg = JSON.parse(ev.data); } catch { return; }
+      let msg: DerivMessage;
+      try {
+        msg = JSON.parse(ev.data) as DerivMessage;
+      } catch {
+        return;
+      }
 
       // Resolve any specific request callback first
       if (msg.req_id && pendingReqs.current.has(msg.req_id)) {
@@ -226,7 +237,7 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
             profit,
           });
           // free up the symbol slot
-          openBySymbol.current.delete(c.underlying);
+          if (c.underlying) openBySymbol.current.delete(c.underlying);
           contractToLog.current.delete(c.contract_id);
         }
       }
@@ -237,7 +248,10 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
       }
     };
 
-    ws.onerror = () => { setStatus("error"); setError("ws error"); };
+    ws.onerror = () => {
+      setStatus("error");
+      setError("ws error");
+    };
     ws.onclose = () => {
       if (wsRef.current === ws) {
         wsRef.current = null;
@@ -246,12 +260,11 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
     };
 
     return () => {
-      try {
-        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ forget_all: ["balance", "proposal_open_contract"] }));
-        ws.close();
-      } catch {}
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ forget_all: ["balance", "proposal_open_contract"] }));
+      }
+      ws.close();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, token]);
 
   // Reset placed-signal tracking when toggled off so the next session can trade again
