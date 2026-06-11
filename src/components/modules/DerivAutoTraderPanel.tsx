@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Panel } from "../Panel";
-import { Bot, KeyRound, Power, Wallet, ShieldAlert, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Bot, KeyRound, Power, Wallet, ShieldAlert, CheckCircle2, XCircle, Clock, HelpCircle } from "lucide-react";
 import { useDerivAutoTrader, type AutoSignal } from "@/hooks/useDerivAutoTrader";
 
 const TOKEN_KEY = "deriv_api_token_v1";
@@ -15,6 +15,7 @@ export function DerivAutoTraderPanel({ signals }: Props) {
   const [stake, setStake] = useState(2);
   const [duration, setDuration] = useState(1); // ticks
   const [showToken, setShowToken] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? window.localStorage.getItem(TOKEN_KEY) : null;
@@ -22,9 +23,10 @@ export function DerivAutoTraderPanel({ signals }: Props) {
   }, []);
 
   const saveToken = (t: string) => {
-    setToken(t);
+    const cleaned = t.trim();
+    setToken(cleaned);
     if (typeof window !== "undefined") {
-      if (t) window.localStorage.setItem(TOKEN_KEY, t);
+      if (cleaned) window.localStorage.setItem(TOKEN_KEY, cleaned);
       else window.localStorage.removeItem(TOKEN_KEY);
     }
   };
@@ -140,7 +142,32 @@ export function DerivAutoTraderPanel({ signals }: Props) {
           </div>
         )}
         {error && (
-          <div className="text-[10px] text-[var(--bear)]">⚠ {error}</div>
+          <div className="rounded-md border border-[var(--bear)]/40 bg-[var(--bear)]/10 px-2.5 py-2 text-[10px] text-[var(--bear)] leading-relaxed">
+            <div className="font-semibold">Deriv says: {error}</div>
+            <div className="mt-1 opacity-90">
+              If this says InvalidToken, create a fresh token while your Demo account is selected, tick Trade, set an expiry date, then copy the token value shown after creation.
+            </div>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowHelp((s) => !s)}
+          className="w-full rounded-md border border-border/50 bg-secondary/25 px-2.5 py-2 text-left text-[10px] leading-relaxed flex gap-2"
+        >
+          <HelpCircle size={13} className="mt-0.5 text-[var(--neon)] shrink-0" />
+          <span>
+            <span className="font-semibold uppercase tracking-wider">Deriv token checklist</span>
+            <span className="block opacity-70">For the new/migrated Deriv API page shown in your screenshot.</span>
+          </span>
+        </button>
+        {showHelp && (
+          <div className="rounded-md border border-border/40 bg-secondary/20 px-3 py-2 text-[10px] leading-relaxed opacity-85 space-y-1.5">
+            <p>1. On developers.deriv.com, enter a token name using only letters/numbers, spaces, or underscores.</p>
+            <p>2. Tap Token expiry date and choose a date within 90 days. Leaving expiry empty can stop token creation on the new page.</p>
+            <p>3. Under authorisation scope, tick Trade. Read is normally included by authorization; do not use only Account management or Application insights.</p>
+            <p>4. After creating it, copy the actual token value immediately. Do not copy the token name.</p>
+            <p>5. If your account was migrated, create the token from the same login/account you want to trade, preferably the Demo VRTC account.</p>
+          </div>
         )}
       </div>
 
