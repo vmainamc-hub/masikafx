@@ -202,9 +202,10 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
 
       // Balance subscription
       if (msg.msg_type === "balance" && msg.balance) {
+        const nextBalance = msg.balance;
         setBalance((prev) => ({
-          amount: Number(msg.balance.balance),
-          currency: msg.balance.currency,
+          amount: Number(nextBalance.balance),
+          currency: nextBalance.currency ?? prev?.currency ?? "USD",
           loginid: prev?.loginid,
           isVirtual: prev?.isVirtual,
         }));
@@ -222,7 +223,7 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
             payout: Number(msg.buy.payout),
           });
           contractToLog.current.set(msg.buy.contract_id, logId);
-          reqToLog.current.delete(msg.req_id);
+          if (msg.req_id) reqToLog.current.delete(msg.req_id);
         }
       }
 
