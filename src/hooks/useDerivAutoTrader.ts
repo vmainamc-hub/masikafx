@@ -92,26 +92,37 @@ const formatDerivError = (err?: DerivError) => {
 };
 
 export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signals }: Options) {
-  const [status, setStatus] = useState<"idle" | "connecting" | "authorizing" | "ready" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "connecting" | "authorizing" | "ready" | "error">(
+    "idle",
+  );
   const [error, setError] = useState<string | null>(null);
-  const [balance, setBalance] = useState<{ amount: number; currency: string; loginid?: string; isVirtual?: boolean } | null>(null);
+  const [balance, setBalance] = useState<{
+    amount: number;
+    currency: string;
+    loginid?: string;
+    isVirtual?: boolean;
+  } | null>(null);
   const [log, setLog] = useState<TradeLogEntry[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reqIdRef = useRef(1);
-  const pendingReqs = useRef<Map<number, (msg: any) => void>>(new Map());
+  const pendingReqs = useRef<Map<number, (msg: DerivMessage) => void>>(new Map());
   const placedSignalIds = useRef<Set<string>>(new Set());
   const openBySymbol = useRef<Set<string>>(new Set());
   const contractToLog = useRef<Map<number, string>>(new Map()); // contractId -> log id
-  const reqToLog = useRef<Map<number, string>>(new Map());      // buy req_id -> log id
+  const reqToLog = useRef<Map<number, string>>(new Map()); // buy req_id -> log id
 
   // Stable refs for the latest values used inside the persistent WS handler
   const stakeRef = useRef(stake);
   const durRef = useRef(durationTicks);
-  useEffect(() => { stakeRef.current = stake; }, [stake]);
-  useEffect(() => { durRef.current = durationTicks; }, [durationTicks]);
+  useEffect(() => {
+    stakeRef.current = stake;
+  }, [stake]);
+  useEffect(() => {
+    durRef.current = durationTicks;
+  }, [durationTicks]);
 
-  const send = (payload: any, onReply?: (msg: any) => void) => {
+  const send = (payload: DerivPayload, onReply?: (msg: DerivMessage) => void) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const req_id = reqIdRef.current++;
