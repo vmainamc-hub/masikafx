@@ -48,6 +48,12 @@ const CONTRACT_MAP: Record<AutoSignalType, { contract_type: "DIGITOVER" | "DIGIT
   UNDER4: { contract_type: "DIGITUNDER", barrier: "4" },
 };
 
+const formatDerivError = (err: any) => {
+  const code = err?.code ? `${err.code}: ` : "";
+  const message = err?.message || "Deriv request failed";
+  return `${code}${message}`;
+};
+
 export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signals }: Options) {
   const [status, setStatus] = useState<"idle" | "connecting" | "authorizing" | "ready" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +89,8 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
 
   // Connect / auth lifecycle
   useEffect(() => {
-    if (!enabled || !token) {
+    const cleanToken = token.trim();
+    if (!enabled || !cleanToken) {
       try { wsRef.current?.close(); } catch {}
       wsRef.current = null;
       setStatus("idle");
@@ -103,10 +110,10 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
 
     ws.onopen = () => {
       setStatus("authorizing");
-      send({ authorize: token }, (msg) => {
+      send({ authorize: cleanToken }, (msg) => {
         if (msg.error) {
           setStatus("error");
-          setError(msg.error.message || "authorize failed");
+          setError(formatDerivError(msg.error));
           return;
         }
         const auth = msg.authorize;
@@ -178,7 +185,7 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
 
       if (msg.error && !msg.req_id) {
         // ambient error
-        setError(msg.error.message || String(msg.error.code));
+        setError(formatDerivError(msg.error));
       }
     };
 
@@ -252,7 +259,7 @@ export function useDerivAutoTrader({ enabled, token, stake, durationTicks, signa
       },
       (msg) => {
         if (msg.error) {
-          updateLog(logId, { status: "ERROR", error: msg.error.message });
+          updateLog(logId, { status: "ERROR", error: formatDerivError(msg.error) });
           openBySymbol.current.delete(sig.symbol);
           return;
         }
